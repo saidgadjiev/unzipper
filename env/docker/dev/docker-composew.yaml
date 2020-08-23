@@ -14,7 +14,6 @@ services:
     depends_on:
       - db
       - unzipperredis
-      - url2api
       - unzippermtproto
       - unzipperbotapi
   db:
@@ -38,10 +37,6 @@ services:
       - '--save 60 10000'
     volumes:
       - ../../../data/unzipper/redis:/data
-  url2api:
-    container_name: url2api
-    restart: always
-    build: ../../../../url-to-pdf-api/
   unzippermtproto:
     container_name: unzippermtproto
     restart: always
