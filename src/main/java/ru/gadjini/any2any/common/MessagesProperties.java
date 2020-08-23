@@ -29,8 +29,6 @@ public class MessagesProperties {
 
     public static final String MESSAGE_HELP = "message.help";
 
-    public static final String HELP_COMMAND_NAME = "help.command.name";
-
     public static final String MESSAGE_SESSION_EXPIRED = "message.session.expired";
 
     public static final String MESSAGE_ZIP_FILE = "message.unzip.welcome";
