@@ -63,7 +63,7 @@ public class CommandNavigator {
         long chatId = message.getChatId();
         NavigableBotCommand currentCommand = getCurrentCommand(chatId);
         if (currentCommand == null) {
-            NavigableBotCommand parentCommand = navigableBotCommands.get(CommandNames.START_COMMAND);
+            NavigableBotCommand parentCommand = navigableBotCommands.get(CommandNames.START_COMMAND_NAME);
 
             setCurrentCommand(chatId, parentCommand);
             parentCommand.restore(message);

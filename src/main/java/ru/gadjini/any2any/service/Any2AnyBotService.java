@@ -88,13 +88,13 @@ public class Any2AnyBotService {
     }
 
     private boolean restoreCommand(long chatId, String command) {
-        if (StringUtils.isNotBlank(command) && command.startsWith(BotCommand.COMMAND_INIT_CHARACTER + CommandNames.START_COMMAND)) {
+        if (StringUtils.isNotBlank(command) && command.startsWith(BotCommand.COMMAND_INIT_CHARACTER + CommandNames.START_COMMAND_NAME)) {
             return false;
         }
         if (commandNavigator.isEmpty(chatId)) {
-            commandNavigator.zeroRestore(chatId, (NavigableBotCommand) commandExecutor.getBotCommand(CommandNames.START_COMMAND));
+            commandNavigator.zeroRestore(chatId, (NavigableBotCommand) commandExecutor.getBotCommand(CommandNames.START_COMMAND_NAME));
             Locale locale = userService.getLocaleOrDefault((int) chatId);
-            messageService.sendBotRestartedMessage(chatId, replyKeyboardService.getMainMenu(chatId, locale), locale);
+            messageService.sendBotRestartedMessage(chatId, replyKeyboardService.removeKeyboard(chatId), locale);
 
             return true;
         }

@@ -65,7 +65,7 @@ public class StartCommandFilter extends BaseBotFilter {
         if (update.hasMessage() && update.getMessage().isCommand()) {
             String commandName = commandParser.parseBotCommandName(update.getMessage());
 
-            return commandName.equals(CommandNames.START_COMMAND);
+            return commandName.equals(CommandNames.START_COMMAND_NAME);
         }
 
         return false;
@@ -78,13 +78,13 @@ public class StartCommandFilter extends BaseBotFilter {
             String text = localisationService.getMessage(MessagesProperties.MESSAGE_WELCOME,
                     new Object[]{commandMessageBuilder.getCommandsInfo(createOrUpdateResult.getUser().getLocale())},
                     createOrUpdateResult.getUser().getLocale());
-            ReplyKeyboard mainMenu = replyKeyboardService.getMainMenu(message.getChatId(), createOrUpdateResult.getUser().getLocale());
+            ReplyKeyboard mainMenu = replyKeyboardService.removeKeyboard(message.getChatId());
             messageService.sendMessage(
                     new HtmlMessage(message.getChatId(), text)
                             .setReplyMarkup(mainMenu)
             );
 
-            commandNavigator.setCurrentCommand(message.getChatId(), CommandNames.START_COMMAND);
+            commandNavigator.setCurrentCommand(message.getChatId(), CommandNames.START_COMMAND_NAME);
         }
 
         return createOrUpdateResult;

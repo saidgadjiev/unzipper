@@ -87,46 +87,6 @@ public class ButtonFactory {
         return button;
     }
 
-    public InlineKeyboardButton updateButton(Locale locale) {
-        return delegateButton(MessagesProperties.UPDATE_COMMAND_DESCRIPTION, CommandNames.IMAGE_EDITOR_COMMAND_NAME,
-                new RequestParams().add(Arg.UPDATE_EDITED_IMAGE.getKey(), "u"), locale);
-    }
-
-    public InlineKeyboardButton moreColorsButton(Locale locale) {
-        InlineKeyboardButton button = new InlineKeyboardButton(localisationService.getMessage(MessagesProperties.MORE_COLORS_COMMAND_DESCRIPTION, locale));
-        button.setUrl(localisationService.getMessage(MessagesProperties.COLOR_PICKER, locale));
-
-        return button;
-    }
-
-    public InlineKeyboardButton imageColorButton(Locale locale) {
-        InlineKeyboardButton button = new InlineKeyboardButton(localisationService.getMessage(MessagesProperties.IMAGE_COLOR_COMMAND_DESCRIPTION, locale));
-        button.setUrl(localisationService.getMessage(MessagesProperties.IMAGE_COLOR_PICKER, locale));
-
-        return button;
-    }
-
-    public InlineKeyboardButton delegateButton(String name, String delegate, RequestParams requestParams) {
-        requestParams.add(Arg.CALLBACK_DELEGATE.getKey(), delegate);
-
-        InlineKeyboardButton button = new InlineKeyboardButton(name);
-        button.setCallbackData(CommandNames.CALLBACK_DELEGATE_COMMAND_NAME + CommandParser.COMMAND_NAME_SEPARATOR +
-                requestParams.serialize(CommandParser.COMMAND_ARG_SEPARATOR));
-
-        return button;
-    }
-
-    public InlineKeyboardButton cancelButton(Locale locale) {
-        InlineKeyboardButton inlineKeyboardButton = new InlineKeyboardButton(localisationService.getMessage(MessagesProperties.CANCEL_COMMAND_DESCRIPTION, locale));
-        inlineKeyboardButton.setCallbackData(CommandNames.CANCEL_COMMAND_NAME);
-
-        return inlineKeyboardButton;
-    }
-
-    public InlineKeyboardButton delegateButton(String nameCode, String delegate, RequestParams requestParams, Locale locale) {
-        return delegateButton(localisationService.getMessage(nameCode, locale), delegate, requestParams);
-    }
-
     public InlineKeyboardButton extractAllButton(int unzipJobId, Locale locale) {
         InlineKeyboardButton inlineKeyboardButton = new InlineKeyboardButton(localisationService.getMessage(MessagesProperties.EXTRACT_ALL_COMMAND_DESCRIPTION, locale));
         inlineKeyboardButton.setCallbackData(CommandNames.EXTRACT_ALL + CommandParser.COMMAND_NAME_SEPARATOR +

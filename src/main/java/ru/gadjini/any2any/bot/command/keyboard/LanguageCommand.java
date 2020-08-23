@@ -82,7 +82,7 @@ public class LanguageCommand implements KeyboardBotCommand, NavigableBotCommand,
 
     @Override
     public String getParentCommandName(long chatId) {
-        return CommandNames.START_COMMAND;
+        return CommandNames.START_COMMAND_NAME;
     }
 
     @Override
@@ -105,7 +105,7 @@ public class LanguageCommand implements KeyboardBotCommand, NavigableBotCommand,
         userService.changeLocale(message.getFrom().getId(), locale);
         messageService.sendMessage(
                 new HtmlMessage(message.getChatId(), localisationService.getMessage(MessagesProperties.MESSAGE_LANGUAGE_SELECTED, locale))
-                        .setReplyMarkup(replyKeyboardService.getMainMenu(message.getChatId(), locale))
+                        .setReplyMarkup(replyKeyboardService.removeKeyboard(message.getChatId()))
         );
         commandNavigator.silentPop(message.getChatId());
     }
