@@ -1,0 +1,77 @@
+version: '3'
+services:
+  unzipperapp:
+    container_name: unzipperapp
+    restart: always
+    build: ../../../
+    volumes:
+      - ../../../data/unzipper/logs:/home/bot/app/logs
+      - ../../../data/shr:/tmp/shr
+    ports:
+      - 5005:5005
+    env_file:
+      - .env.unzipper
+    depends_on:
+      - db
+      - unzipperredis
+      - url2api
+      - unzippermtproto
+      - unzipperbotapi
+  db:
+    container_name: db
+    image: postgres:alpine
+    restart: always
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - 5431:5432
+    env_file:
+      - .db.env
+  unzipperredis:
+    container_name: unzipperredis
+    image: redis:alpine
+    restart: always
+    command:
+      - 'redis-server'
+      - '--save 900 1'
+      - '--save 300 10'
+      - '--save 60 10000'
+    volumes:
+      - ../../../data/unzipper/redis:/data
+  url2api:
+    container_name: url2api
+    restart: always
+    build: ../../../../url-to-pdf-api/
+  unzippermtproto:
+    container_name: unzippermtproto
+    restart: always
+    build: ../../../../unzipper-rest/
+    env_file:
+      - .env.unzipper
+    volumes:
+      - ../../../data/unzipper/gram:/home/bot/app/gram
+      - ../../../data/shr:/tmp/shr
+    depends_on:
+      - unzipperbotapi
+  unzipperbot:
+    container_name: unzipperbot
+    restart: always
+    build: ../../../../unzipper-bot/
+    env_file:
+      - .env.unzipper
+    volumes:
+      - ../../../data/unzipper/gram:/home/bot/app/gram
+    depends_on:
+      - unzipperapp
+  unzipperbotapi:
+    container_name: unzipperbotapi
+    restart: always
+    build: ../../../../unzipper-bot-api/
+    env_file:
+      - .env.unzipper
+    volumes:
+      - ../../../data/logs:/app/logs
+      - ../../../data/shr:/tmp/shr
+volumes:
+  pgdata:
+    external: true
