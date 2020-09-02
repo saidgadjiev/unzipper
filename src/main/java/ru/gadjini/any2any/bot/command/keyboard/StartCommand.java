@@ -6,13 +6,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import ru.gadjini.any2any.bot.command.api.BotCommand;
+import ru.gadjini.any2any.bot.command.api.CallbackBotCommand;
 import ru.gadjini.any2any.bot.command.api.NavigableBotCommand;
 import ru.gadjini.any2any.common.CommandNames;
 import ru.gadjini.any2any.common.MessagesProperties;
 import ru.gadjini.any2any.exception.UserException;
 import ru.gadjini.any2any.model.Any2AnyFile;
 import ru.gadjini.any2any.model.bot.api.method.send.HtmlMessage;
+import ru.gadjini.any2any.model.bot.api.object.CallbackQuery;
 import ru.gadjini.any2any.model.bot.api.object.Message;
+import ru.gadjini.any2any.request.Arg;
+import ru.gadjini.any2any.request.RequestParams;
 import ru.gadjini.any2any.service.FileService;
 import ru.gadjini.any2any.service.LocalisationService;
 import ru.gadjini.any2any.service.UserService;
@@ -28,7 +32,7 @@ import ru.gadjini.any2any.service.unzip.UnzipState;
 import java.util.Locale;
 
 @Component
-public class StartCommand implements NavigableBotCommand, BotCommand {
+public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBotCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(StartCommand.class);
 
@@ -100,6 +104,24 @@ public class StartCommand implements NavigableBotCommand, BotCommand {
         UnzipState unzipState = createState(file.getFormat());
         commandStateService.setState(message.getChatId(), CommandNames.START_COMMAND_NAME, unzipState);
         unzipService.unzip(message.getFrom().getId(), message.getMessageId(), file, locale);
+    }
+
+    @Override
+    public void processNonCommandCallback(CallbackQuery callbackQuery, RequestParams requestParams) {
+        if (requestParams.contains(Arg.PAGINATION.getKey())) {
+            unzipService.nextOrPrev(callbackQuery.getId(), callbackQuery.getMessage().getChatId(), callbackQuery.getFrom().getId(),
+                    callbackQuery.getMessage().getMessageId(), requestParams.getInt(Arg.PREV_LIMIT.getKey()), requestParams.getInt(Arg.OFFSET.getKey()));
+        }
+    }
+
+    @Override
+    public String getName() {
+        return getHistoryName();
+    }
+
+    @Override
+    public void processMessage(CallbackQuery callbackQuery, RequestParams requestParams) {
+
     }
 
     private Format checkFormat(int userId, Format format, String mimeType, String fileName, Locale locale) {
