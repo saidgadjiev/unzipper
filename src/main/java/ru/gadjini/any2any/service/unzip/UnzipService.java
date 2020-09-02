@@ -282,15 +282,14 @@ public class UnzipService {
                     queryId,
                     localisationService.getMessage(MessagesProperties.MESSAGE_QUERY_CANCELED, userService.getLocaleOrDefault((int) chatId))
             ));
-            try {
-                executor.cancelAndComplete(jobId, true);
+            if (!executor.cancelAndComplete(jobId, true)) {
+                queueService.delete(jobId);
+                fileManager.fileWorkObject(chatId, -1).stop();
+
                 commandStateService.deleteState(chatId, CommandNames.START_COMMAND_NAME);
                 if (StringUtils.isNotBlank(unzipState.getArchivePath())) {
                     new SmartTempFile(new File(unzipState.getArchivePath())).smartDelete();
                 }
-            } finally {
-                queueService.delete(jobId);
-                fileManager.fileWorkObject(chatId, -1).stop();
             }
         }
         messageService.editMessage(new EditMessageText(
@@ -311,9 +310,7 @@ public class UnzipService {
                     queryId,
                     localisationService.getMessage(MessagesProperties.MESSAGE_QUERY_CANCELED, userService.getLocaleOrDefault((int) chatId))
             ));
-            try {
-                executor.cancelAndComplete(jobId, true);
-            } finally {
+            if (!executor.cancelAndComplete(jobId, true)) {
                 queueService.delete(jobId);
             }
             UnzipState unzipState = commandStateService.getState(chatId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
