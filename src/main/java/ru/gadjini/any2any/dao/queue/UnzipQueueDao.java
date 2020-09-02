@@ -148,6 +148,7 @@ public class UnzipQueueDao {
         if (itemType == UnzipQueueItem.ItemType.UNZIP) {
             TgFile tgFile = new TgFile();
             tgFile.setFileId(resultSet.getString(TgFile.FILE_ID));
+            tgFile.setSize(resultSet.getInt(TgFile.SIZE));
             item.setFile(tgFile);
 
             item.setType(Format.valueOf(resultSet.getString(UnzipQueueItem.TYPE)));
@@ -156,7 +157,6 @@ public class UnzipQueueDao {
             item.setExtractFileSize(resultSet.getLong(UnzipQueueItem.EXTRACT_FILE_SIZE));
         } else {
             item.setExtractFileSize(resultSet.getLong(UnzipQueueItem.EXTRACT_FILE_SIZE));
-
         }
 
         return item;

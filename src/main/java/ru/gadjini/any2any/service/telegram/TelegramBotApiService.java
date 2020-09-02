@@ -316,7 +316,7 @@ public class TelegramBotApiService implements TelegramMediaService {
 
     @Override
     public void downloadFileByFileId(String fileId, long fileSize, SmartTempFile outputFile) {
-        downloadFileByFileId(fileId, 0, null, outputFile);
+        downloadFileByFileId(fileId, fileSize, null, outputFile);
     }
 
     @Override
