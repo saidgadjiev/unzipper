@@ -324,7 +324,7 @@ public class TelegramBotApiService implements TelegramMediaService {
         try {
             StopWatch stopWatch = new StopWatch();
             stopWatch.start();
-            LOGGER.debug("Start downloadFileByFileId({})", fileId);
+            LOGGER.debug("Start downloadFileByFileId({}, {})", fileId, MemoryUtils.humanReadableByteCount(fileSize));
 
             GetFile getFile = new GetFile();
             getFile.setFileId(fileId);
