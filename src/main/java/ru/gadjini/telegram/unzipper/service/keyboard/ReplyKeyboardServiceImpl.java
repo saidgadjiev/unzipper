@@ -5,10 +5,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.ReplyKeyboard;
-import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
-import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.ReplyKeyboardMarkup;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.ReplyKeyboardRemove;
+import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
+import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +45,7 @@ public class ReplyKeyboardServiceImpl implements UnzipBotReplyKeyboardService {
     }
 
     @Override
-    public ReplyKeyboard getMainMenu(long chatId) {
+    public ReplyKeyboard getMainMenu(long chatId, Locale locale) {
         return removeKeyboard(chatId);
     }
 }

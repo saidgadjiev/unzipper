@@ -24,7 +24,7 @@ public class CurrReplyKeyboard implements UnzipBotReplyKeyboardService {
 
     @Override
     public ReplyKeyboardMarkup languageKeyboard(long chatId, Locale locale) {
-        return setCurrentKeyboard(chatId, keyboardService.languageKeyboard(chatId, locale));
+        return setCurrentKeyboard(chatId, (ReplyKeyboardMarkup) keyboardService.languageKeyboard(chatId, locale));
     }
 
     @Override
@@ -36,7 +36,7 @@ public class CurrReplyKeyboard implements UnzipBotReplyKeyboardService {
     }
 
     @Override
-    public ReplyKeyboard getMainMenu(long chatId) {
+    public ReplyKeyboard getMainMenu(long chatId, Locale locale) {
         return removeKeyboard(chatId);
     }
 

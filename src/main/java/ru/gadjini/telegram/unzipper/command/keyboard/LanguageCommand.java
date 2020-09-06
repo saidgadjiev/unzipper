@@ -101,11 +101,6 @@ public class LanguageCommand implements KeyboardBotCommand, NavigableBotCommand,
         }
     }
 
-    @Override
-    public String getCommandDescription(Locale locale) {
-        return "/" + CommandNames.LANGUAGE_COMMAND_NAME + " - " + localisationService.getMessage(MessagesProperties.LANGUAGE_COMMAND_DESCRIPTION, locale) + "\n";
-    }
-
     private void changeLocale(Message message, Locale locale) {
         userService.changeLocale(message.getFrom().getId(), locale);
         messageService.sendMessage(

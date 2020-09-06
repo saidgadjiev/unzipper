@@ -7,11 +7,8 @@ import ru.gadjini.telegram.smart.bot.commons.service.keyboard.ReplyKeyboardServi
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Locale;
 
 public interface UnzipBotReplyKeyboardService extends ReplyKeyboardService {
-
-    ReplyKeyboardMarkup languageKeyboard(long chatId, Locale locale);
 
     ReplyKeyboardRemove removeKeyboard(long chatId);
 

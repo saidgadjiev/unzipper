@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import ru.gadjini.telegram.smart.bot.commons.command.api.BotCommand;
 import ru.gadjini.telegram.smart.bot.commons.command.api.CallbackBotCommand;
 import ru.gadjini.telegram.smart.bot.commons.command.api.NavigableBotCommand;
+import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.smart.bot.commons.model.Any2AnyFile;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.HtmlMessage;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.CallbackQuery;
@@ -23,7 +24,6 @@ import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.request.RequestParams;
 import ru.gadjini.telegram.unzipper.common.CommandNames;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
-import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.unzipper.request.Arg;
 import ru.gadjini.telegram.unzipper.service.keyboard.UnzipBotReplyKeyboardService;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipService;
@@ -122,11 +122,6 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
     @Override
     public void processMessage(CallbackQuery callbackQuery, RequestParams requestParams) {
 
-    }
-
-    @Override
-    public String getCommandDescription(Locale locale) {
-        return "/" + CommandNames.START_COMMAND_NAME + " - " + localisationService.getMessage(MessagesProperties.UNZIP_COMMAND_DESCRIPTION, locale) + "\n";
     }
 
     private Format checkFormat(int userId, Format format, String mimeType, String fileName, Locale locale) {
