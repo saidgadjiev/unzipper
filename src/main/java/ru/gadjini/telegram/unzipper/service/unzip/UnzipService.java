@@ -8,9 +8,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.gadjini.telegram.smart.bot.commons.exception.ProcessException;
+import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.smart.bot.commons.exception.botapi.TelegramApiException;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
-import ru.gadjini.telegram.smart.bot.commons.model.Any2AnyFile;
+import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
 import ru.gadjini.telegram.smart.bot.commons.model.SendFileResult;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.SendDocument;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.SendMessage;
@@ -24,18 +25,17 @@ import ru.gadjini.telegram.smart.bot.commons.service.ProgressManager;
 import ru.gadjini.telegram.smart.bot.commons.service.TempFileService;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
 import ru.gadjini.telegram.smart.bot.commons.service.command.CommandStateService;
-import ru.gadjini.telegram.smart.bot.commons.service.conversion.api.Format;
+import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
 import ru.gadjini.telegram.smart.bot.commons.service.file.FileManager;
 import ru.gadjini.telegram.smart.bot.commons.service.file.FileWorkObject;
+import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MediaMessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.utils.MemoryUtils;
 import ru.gadjini.telegram.unzipper.common.CommandNames;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
-import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
-import ru.gadjini.telegram.unzipper.service.concurrent.SmartExecutorService;
 import ru.gadjini.telegram.unzipper.service.keyboard.InlineKeyboardService;
 import ru.gadjini.telegram.unzipper.service.progress.Lang;
 import ru.gadjini.telegram.unzipper.service.queue.UnzipQueueService;
@@ -236,7 +236,7 @@ public class UnzipService {
         }
     }
 
-    public void unzip(int userId, int replyToMessageId, Any2AnyFile file, Locale locale) {
+    public void unzip(int userId, int replyToMessageId, MessageMedia file, Locale locale) {
         checkCandidate(file.getFormat(), locale);
         UnzipQueueItem queueItem = queueService.createProcessingUnzipItem(userId, file);
         UnzipState unzipState = commandStateService.getState(userId, CommandNames.START_COMMAND_NAME, true, UnzipState.class);

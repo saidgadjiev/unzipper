@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Component;
 import ru.gadjini.telegram.unzipper.condition.WindowsCondition;
 import ru.gadjini.telegram.unzipper.exception.UnzipException;
-import ru.gadjini.telegram.smart.bot.commons.service.conversion.api.Format;
+import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 
 import java.io.File;
 import java.util.Set;

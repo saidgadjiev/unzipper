@@ -10,7 +10,7 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import ru.gadjini.telegram.smart.bot.commons.exception.botapi.TelegramApiRequestException;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
-import ru.gadjini.telegram.unzipper.service.concurrent.SmartExecutorService;
+import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipService;
 
 import java.util.Map;

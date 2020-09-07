@@ -9,7 +9,7 @@ import ru.gadjini.telegram.smart.bot.commons.exception.ProcessException;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
 import ru.gadjini.telegram.smart.bot.commons.service.TempFileService;
-import ru.gadjini.telegram.smart.bot.commons.service.conversion.api.Format;
+import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 
 import java.io.IOException;
 import java.nio.file.Files;

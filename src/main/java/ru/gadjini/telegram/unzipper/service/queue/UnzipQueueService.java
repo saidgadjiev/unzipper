@@ -2,11 +2,11 @@ package ru.gadjini.telegram.unzipper.service.queue;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import ru.gadjini.telegram.smart.bot.commons.model.Any2AnyFile;
+import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
+import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
 import ru.gadjini.telegram.unzipper.dao.UnzipQueueDao;
 import ru.gadjini.telegram.unzipper.domain.TgFile;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
-import ru.gadjini.telegram.unzipper.service.concurrent.SmartExecutorService;
 
 import java.util.List;
 
@@ -24,7 +24,7 @@ public class UnzipQueueService {
         unzipQueueDao.resetProcessing();
     }
 
-    public UnzipQueueItem createProcessingUnzipItem(int userId, Any2AnyFile any2AnyFile) {
+    public UnzipQueueItem createProcessingUnzipItem(int userId, MessageMedia any2AnyFile) {
         UnzipQueueItem queueItem = new UnzipQueueItem();
         queueItem.setUserId(userId);
         queueItem.setType(any2AnyFile.getFormat());

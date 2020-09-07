@@ -9,17 +9,17 @@ import ru.gadjini.telegram.smart.bot.commons.command.api.BotCommand;
 import ru.gadjini.telegram.smart.bot.commons.command.api.CallbackBotCommand;
 import ru.gadjini.telegram.smart.bot.commons.command.api.NavigableBotCommand;
 import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
-import ru.gadjini.telegram.smart.bot.commons.model.Any2AnyFile;
+import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.HtmlMessage;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.CallbackQuery;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.Message;
-import ru.gadjini.telegram.smart.bot.commons.service.FileService;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
+import ru.gadjini.telegram.smart.bot.commons.service.MessageMediaService;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
 import ru.gadjini.telegram.smart.bot.commons.service.command.CommandStateService;
-import ru.gadjini.telegram.smart.bot.commons.service.conversion.api.Format;
-import ru.gadjini.telegram.smart.bot.commons.service.conversion.api.FormatCategory;
-import ru.gadjini.telegram.smart.bot.commons.service.conversion.impl.FormatService;
+import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
+import ru.gadjini.telegram.smart.bot.commons.service.format.FormatCategory;
+import ru.gadjini.telegram.smart.bot.commons.service.format.FormatService;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.request.RequestParams;
 import ru.gadjini.telegram.unzipper.common.CommandNames;
@@ -48,14 +48,14 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
 
     private FormatService formatService;
 
-    private FileService fileService;
+    private MessageMediaService fileService;
 
     private CommandStateService commandStateService;
 
     @Autowired
     public StartCommand(LocalisationService localisationService, UnzipService unzipService,
                         @Qualifier("messageLimits") MessageService messageService, @Qualifier("curr") UnzipBotReplyKeyboardService replyKeyboardService,
-                        UserService userService, FormatService formatService, FileService fileService, CommandStateService commandStateService) {
+                        UserService userService, FormatService formatService, MessageMediaService fileService, CommandStateService commandStateService) {
         this.localisationService = localisationService;
         this.unzipService = unzipService;
         this.messageService = messageService;
@@ -97,7 +97,7 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
     public void processNonCommandUpdate(Message message, String text) {
         Format format = formatService.getFormat(message.getDocument().getFileName(), message.getDocument().getMimeType());
         Locale locale = userService.getLocaleOrDefault(message.getFrom().getId());
-        Any2AnyFile file = fileService.getFile(message, locale);
+        MessageMedia file = fileService.getMedia(message, locale);
         file.setFormat(checkFormat(message.getFrom().getId(), format, message.getDocument().getMimeType(), message.getDocument().getFileName(), locale));
 
         unzipService.removeAndCancelCurrentTasks(message.getChatId());

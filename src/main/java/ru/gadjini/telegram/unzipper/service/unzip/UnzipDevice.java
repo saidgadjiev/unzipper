@@ -1,7 +1,7 @@
 package ru.gadjini.telegram.unzipper.service.unzip;
 
+import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
-import ru.gadjini.telegram.smart.bot.commons.service.conversion.api.Format;
 
 import java.util.Collections;
 import java.util.List;

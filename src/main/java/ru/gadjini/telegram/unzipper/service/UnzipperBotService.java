@@ -23,7 +23,7 @@ import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import java.util.Locale;
 
 @Service
-public class Any2AnyBotService {
+public class UnzipperBotService {
 
     private MessageService messageService;
 
@@ -38,9 +38,9 @@ public class Any2AnyBotService {
     private CurrReplyKeyboard replyKeyboardService;
 
     @Autowired
-    public Any2AnyBotService(@Qualifier("messageLimits") MessageService messageService, CommandExecutor commandExecutor,
-                             LocalisationService localisationService, UserService userService,
-                             CommandNavigator commandNavigator, CurrReplyKeyboard replyKeyboardService) {
+    public UnzipperBotService(@Qualifier("messageLimits") MessageService messageService, CommandExecutor commandExecutor,
+                              LocalisationService localisationService, UserService userService,
+                              CommandNavigator commandNavigator, CurrReplyKeyboard replyKeyboardService) {
         this.messageService = messageService;
         this.commandExecutor = commandExecutor;
         this.localisationService = localisationService;
