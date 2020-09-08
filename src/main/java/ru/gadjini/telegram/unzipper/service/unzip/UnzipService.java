@@ -488,9 +488,11 @@ public class UnzipService {
             try {
                 UnzipState unzipState = commandStateService.getState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
 
-                for (Map.Entry<Integer, ZipFileHeader> entry : unzipState.getFiles().entrySet()) {
-                    mediaMessageService.sendFile(item.getUserId(), unzipState.getFilesCache().get(entry.getKey()));
-                    Thread.sleep(SLEEP_TIME);
+                if (unzipState != null) {
+                    for (Map.Entry<Integer, ZipFileHeader> entry : unzipState.getFiles().entrySet()) {
+                        mediaMessageService.sendFile(item.getUserId(), unzipState.getFilesCache().get(entry.getKey()));
+                        Thread.sleep(SLEEP_TIME);
+                    }
                 }
             } catch (Exception ex) {
                 LOGGER.error(ex.getMessage(), ex);
