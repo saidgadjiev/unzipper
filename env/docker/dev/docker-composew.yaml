@@ -8,35 +8,12 @@ services:
       - ../../../data/unzipper/logs:/home/bot/app/logs
       - ../../../data/shr:/tmp/shr
     ports:
-      - 5005:5005
+      - 5001:5005
     env_file:
       - .env.unzipper
     depends_on:
-      - db
-      - unzipperredis
       - unzippermtproto
       - unzipperbotapi
-  db:
-    container_name: db
-    image: postgres:alpine
-    restart: always
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - 5431:5432
-    env_file:
-      - .db.env
-  unzipperredis:
-    container_name: unzipperredis
-    image: redis:alpine
-    restart: always
-    command:
-      - 'redis-server'
-      - '--save 900 1'
-      - '--save 300 10'
-      - '--save 60 10000'
-    volumes:
-      - ../../../data/unzipper/redis:/data
   unzippermtproto:
     container_name: unzippermtproto
     restart: always
@@ -65,8 +42,9 @@ services:
     env_file:
       - .env.unzipper
     volumes:
-      - ../../../data/logs:/app/logs
+      - ../../../data/unzipper/logs:/app/logs
       - ../../../data/shr:/tmp/shr
-volumes:
-  pgdata:
-    external: true
+networks:
+  default:
+    external:
+      name: fileutils
