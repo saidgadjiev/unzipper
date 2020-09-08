@@ -251,16 +251,14 @@ public class UnzipService {
         });
     }
 
-    public void removeAndCancelCurrentTasks(long chatId) {
-        List<UnzipQueueItem> queueItems = queueService.deleteByUserId((int) chatId);
-        for (UnzipQueueItem unzipQueueItem : queueItems) {
-            if (unzipQueueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
-                if (!executor.cancelAndComplete(unzipQueueItem.getId(), true)) {
-                    fileManager.fileWorkObject(chatId, unzipQueueItem.getFile().getSize()).stop();
-                }
-            } else {
-                executor.cancelAndComplete(unzipQueueItem.getId(), true);
+    public void removeAndCancelCurrentTask(long chatId) {
+        UnzipQueueItem unzipQueueItem = queueService.deleteByUserId((int) chatId);
+        if (unzipQueueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
+            if (!executor.cancelAndComplete(unzipQueueItem.getId(), true)) {
+                fileManager.fileWorkObject(chatId, unzipQueueItem.getFile().getSize()).stop();
             }
+        } else {
+            executor.cancelAndComplete(unzipQueueItem.getId(), true);
         }
         UnzipState unzipState = commandStateService.getState(chatId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
 

@@ -98,8 +98,12 @@ public class UnzipQueueService {
         unzipQueueDao.setMessageId(id, messageId);
     }
 
-    public List<UnzipQueueItem> deleteByUserId(int userId) {
+    public UnzipQueueItem deleteByUserId(int userId) {
         return unzipQueueDao.deleteByUserId(userId);
+    }
+
+    public UnzipQueueItem getByUserId(int userId) {
+        return unzipQueueDao.getByUserId(userId);
     }
 
     public boolean exists(int jobId) {

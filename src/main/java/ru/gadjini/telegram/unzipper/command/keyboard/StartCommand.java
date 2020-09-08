@@ -100,7 +100,7 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
         MessageMedia file = fileService.getMedia(message, locale);
         file.setFormat(checkFormat(message.getFrom().getId(), format, message.getDocument().getMimeType(), message.getDocument().getFileName(), locale));
 
-        unzipService.removeAndCancelCurrentTasks(message.getChatId());
+        unzipService.removeAndCancelCurrentTask(message.getChatId());
         UnzipState unzipState = createState(file.getFormat());
         commandStateService.setState(message.getChatId(), CommandNames.START_COMMAND_NAME, unzipState);
         unzipService.unzip(message.getFrom().getId(), message.getMessageId(), file, locale);
