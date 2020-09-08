@@ -316,13 +316,10 @@ public class UnzipService {
             UnzipState unzipState = commandStateService.getState(chatId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
             if (unzipState != null) {
                 Locale locale = userService.getLocaleOrDefault((int) chatId);
-                String message = localisationService.getMessage(
-                        MessagesProperties.MESSAGE_ARCHIVE_FILES_LIST,
-                        new Object[]{messageBuilder.getFilesList(unzipState.getFiles().values())},
-                        locale
-                );
-                messageService.editMessage(new EditMessageText(chatId, messageId, message)
-                        .setReplyMarkup(inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), unzipState.getUnzipJobId(), locale)));
+                UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, 0, locale);
+                InlineKeyboardMarkup filesListKeyboard = inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), 0, filesList.getOffset(), unzipState.getUnzipJobId(), locale);
+                messageService.editMessage(new EditMessageText(chatId, messageId, filesList.getMessage())
+                        .setReplyMarkup(filesListKeyboard));
             }
         }
     }
@@ -375,14 +372,12 @@ public class UnzipService {
 
     private void finishExtracting(int userId, int messageId, UnzipState unzipState) {
         Locale locale = userService.getLocaleOrDefault(userId);
-        String message = localisationService.getMessage(
-                MessagesProperties.MESSAGE_ARCHIVE_FILES_LIST,
-                new Object[]{messageBuilder.getFilesList(unzipState.getFiles().values())},
-                locale
-        );
+        UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, 0, locale);
+        InlineKeyboardMarkup filesListKeyboard = inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), 0, filesList.getOffset(), unzipState.getUnzipJobId(), locale);
+
         messageService.editMessage(new EditMessageText(userId, messageId, messageBuilder.buildExtractFileProgressMessage(ExtractFileStep.COMPLETED, Lang.JAVA, locale)));
-        messageService.sendMessage(new SendMessage((long) userId, message)
-                .setReplyMarkup(inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), unzipState.getUnzipJobId(), locale)));
+        messageService.sendMessage(new SendMessage((long) userId, filesList.getMessage())
+                .setReplyMarkup(filesListKeyboard));
     }
 
     private UnzipDevice getCandidate(Format format) {
@@ -464,7 +459,9 @@ public class UnzipService {
 
     public class ExtractAllTask implements SmartExecutorService.ProgressJob {
 
-        public static final String TAG = "extractall";
+        private static final String TAG = "extractall";
+
+        private static final int SLEEP_TIME = 2000;
 
         private UnzipQueueItem item;
 
@@ -505,9 +502,10 @@ public class UnzipService {
                         if (unzipState.getFilesCache().containsKey(entry.getKey())) {
                             String fileName = FilenameUtils.getName(entry.getValue().getPath());
                             mediaMessageService.sendFile(item.getUserId(), unzipState.getFilesCache().get(entry.getKey()), fileName);
-                            String message = messageBuilder.buildExtractAllProgressMessage(unzipState.getFiles().size(), i, ExtractFileStep.EXTRACTING, Lang.JAVA, locale);
+                            String message = messageBuilder.buildExtractAllProgressMessage(unzipState.getFiles().size(), i + 1, ExtractFileStep.EXTRACTING, Lang.JAVA, locale);
                             String seconds = localisationService.getMessage(MessagesProperties.SECOND_PART, locale);
-                            messageService.editMessage(new EditMessageText(item.getUserId(), item.getMessageId(), String.format(message, 50, "7 " + seconds)));
+                            messageService.editMessage(new EditMessageText(item.getUserId(), item.getMessageId(), String.format(message, 50, "7 " + seconds))
+                                    .setReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(item.getId(), locale)));
                         } else {
                             SmartTempFile file = fileService.createTempFile(item.getUserId(), TAG, FilenameUtils.getExtension(entry.getValue().getPath()));
                             files.add(file);
@@ -515,6 +513,7 @@ public class UnzipService {
 
                             String fileName = FilenameUtils.getName(entry.getValue().getPath());
                             SendFileResult result = mediaMessageService.sendDocument(new SendDocument((long) item.getUserId(), fileName, file.getFile())
+                                    .setReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(item.getId(), locale))
                                     .setProgress(extractAllProgress(unzipState.getFiles().size(), i, item.getUserId(), item.getId(), item.getMessageId()))
                                     .setCaption(fileName));
                             if (result != null) {
@@ -522,6 +521,9 @@ public class UnzipService {
                                 commandStateService.setState(item.getUserId(), CommandNames.START_COMMAND_NAME, unzipState);
                             }
                         }
+
+                        Thread.sleep(SLEEP_TIME);
+
                         ++i;
                     }
                     LOGGER.debug("Finish extract all({}, {})", item.getUserId(), size);
@@ -588,7 +590,7 @@ public class UnzipService {
 
     public class ExtractFileTask implements SmartExecutorService.ProgressJob {
 
-        public static final String TAG = "extractfile";
+        private static final String TAG = "extractfile";
 
         private final Logger LOGGER = LoggerFactory.getLogger(ExtractFileTask.class);
 
@@ -712,7 +714,7 @@ public class UnzipService {
 
     public class UnzipTask implements SmartExecutorService.ProgressJob {
 
-        public static final String TAG = "unzip";
+        private static final String TAG = "unzip";
 
         private final Logger LOGGER = LoggerFactory.getLogger(UnzipTask.class);
 

@@ -52,25 +52,6 @@ public class InlineKeyboardService {
         return inlineKeyboardMarkup;
     }
 
-    public InlineKeyboardMarkup getFilesListKeyboard(Set<Integer> filesIds, int unzipJobId, Locale locale) {
-        InlineKeyboardMarkup inlineKeyboardMarkup = inlineKeyboardMarkup();
-
-        int i = 1;
-        List<List<Integer>> lists = Lists.partition(new ArrayList<>(filesIds), 4);
-        for (List<Integer> list : lists) {
-            List<InlineKeyboardButton> row = new ArrayList<>();
-
-            for (int id : list) {
-                row.add(buttonFactory.extractFileButton(String.valueOf(i++), id, unzipJobId));
-            }
-
-            inlineKeyboardMarkup.getKeyboard().add(row);
-        }
-        inlineKeyboardMarkup.getKeyboard().add(List.of(buttonFactory.extractAllButton(unzipJobId, locale)));
-
-        return inlineKeyboardMarkup;
-    }
-
     public InlineKeyboardMarkup getUnzipProcessingKeyboard(int jobId, Locale locale) {
         InlineKeyboardMarkup inlineKeyboardMarkup = inlineKeyboardMarkup();
 

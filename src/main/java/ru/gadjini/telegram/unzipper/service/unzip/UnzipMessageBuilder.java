@@ -3,19 +3,20 @@ package ru.gadjini.telegram.unzipper.service.unzip;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
+import ru.gadjini.telegram.smart.bot.commons.service.message.TgLimitsMessageService;
+import ru.gadjini.telegram.smart.bot.commons.utils.MemoryUtils;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
-import ru.gadjini.telegram.smart.bot.commons.service.message.TgLimitsMessageService;
 import ru.gadjini.telegram.unzipper.service.progress.Lang;
-import ru.gadjini.telegram.smart.bot.commons.utils.MemoryUtils;
 
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
 
 @Service
 public class UnzipMessageBuilder {
+
+    private static final int MAX_FILES_IN_MESSAGE = 20;
 
     private LocalisationService localisationService;
 
@@ -89,7 +90,13 @@ public class UnzipMessageBuilder {
                     new Object[]{message.toString() + fileHeaderStr.toString()},
                     locale
             );
-            if (finalMessage.length() > TgLimitsMessageService.TEXT_LENGTH_LIMIT) {
+            if (limit >= MAX_FILES_IN_MESSAGE) {
+                return new FilesMessage(localisationService.getMessage(
+                        MessagesProperties.MESSAGE_ARCHIVE_FILES_LIST,
+                        new Object[]{message.toString()},
+                        locale
+                ), limit, offset);
+            } else if (finalMessage.length() > TgLimitsMessageService.TEXT_LENGTH_LIMIT) {
                 return new FilesMessage(localisationService.getMessage(
                         MessagesProperties.MESSAGE_ARCHIVE_FILES_LIST,
                         new Object[]{message.toString()},
@@ -109,23 +116,6 @@ public class UnzipMessageBuilder {
                 new Object[]{message.toString()},
                 locale
         ), limit, offset);
-    }
-
-    public String getFilesList(Collection<ZipFileHeader> files) {
-        StringBuilder message = new StringBuilder();
-        int i = 1;
-        for (Iterator<ZipFileHeader> iterator = files.iterator(); iterator.hasNext(); ) {
-            ZipFileHeader zipFileHeader = iterator.next();
-            message.append(i++).append(") ").append(zipFileHeader.getPath());
-            if (zipFileHeader.getSize() != 0) {
-                message.append(" (").append(MemoryUtils.humanReadableByteCount(zipFileHeader.getSize())).append(")");
-            }
-            if (iterator.hasNext()) {
-                message.append("\n");
-            }
-        }
-
-        return message.toString();
     }
 
     public static class FilesMessage {

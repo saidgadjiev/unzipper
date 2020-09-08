@@ -90,7 +90,7 @@ public class P7ZipUnzipDevice extends BaseUnzipDevice {
     }
 
     private String[] buildUnzipFileCommand(String file, String archive) {
-        return new String[]{"7z", "e", archive, "-so", "-y", file};
+        return new String[]{"7z", "e", archive, "-so", "-y", "--", file};
     }
 
     private String[] buildUnzipCommand(String in, String out) {
