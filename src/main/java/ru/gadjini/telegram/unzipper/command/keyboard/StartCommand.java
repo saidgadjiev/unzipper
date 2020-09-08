@@ -10,9 +10,11 @@ import ru.gadjini.telegram.smart.bot.commons.command.api.CallbackBotCommand;
 import ru.gadjini.telegram.smart.bot.commons.command.api.NavigableBotCommand;
 import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
+import ru.gadjini.telegram.smart.bot.commons.model.TgMessage;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.HtmlMessage;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.CallbackQuery;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.Message;
+import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.ReplyKeyboard;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
 import ru.gadjini.telegram.smart.bot.commons.service.MessageMediaService;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
@@ -122,6 +124,25 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
     @Override
     public void processMessage(CallbackQuery callbackQuery, RequestParams requestParams) {
 
+    }
+
+    @Override
+    public ReplyKeyboard getKeyboard(long chatId) {
+        return replyKeyboardService.removeKeyboard(chatId);
+    }
+
+    @Override
+    public void restore(TgMessage message) {
+        commandStateService.deleteState(message.getChatId(), getHistoryName());
+        Locale locale = userService.getLocaleOrDefault(message.getUser().getId());
+        messageService.sendMessage(new HtmlMessage(message.getChatId(), localisationService.getMessage(MessagesProperties.MESSAGE_MAIN_MENU, locale))
+                .setReplyMarkup(replyKeyboardService.getMainMenu(message.getChatId(), locale)));
+    }
+
+    @Override
+    public String getMessage(long chatId) {
+        Locale locale = userService.getLocaleOrDefault((int) chatId);
+        return localisationService.getMessage(MessagesProperties.MESSAGE_MAIN_MENU, locale);
     }
 
     private Format checkFormat(int userId, Format format, String mimeType, String fileName, Locale locale) {

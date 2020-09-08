@@ -19,17 +19,13 @@ public class MessagesProperties {
 
     public static final String MESSAGE_ZIP_FILE = "message.unzip.welcome";
 
+    public static final String MESSAGE_MAIN_MENU = "message.main.menu";
+
     public static final String MESSAGE_EXTRACT_FILE_IMPOSSIBLE = "message.extract.file.impossible";
 
     public static final String MESSAGE_ZIP_ENCRYPTED = "message.zip.encrypted";
 
     public static final String MESSAGE_ZIP_INVALID = "message.zip.invalid";
-
-    public static final String LANGUAGE_COMMAND_NAME = "language.command.name";
-
-    public static final String MESSAGE_CHOOSE_LANGUAGE = "message.choose.language";
-
-    public static final String MESSAGE_LANGUAGE_SELECTED = "message.language.selected";
 
     public static final String CANCEL_COMMAND_DESCRIPTION = "cancel.command.description";
 
