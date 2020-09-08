@@ -160,9 +160,9 @@ public class UnzipService {
                                 localisationService.getMessage(MessagesProperties.MESSAGE_UNZIP_PROCESSING_ANSWER, userService.getLocaleOrDefault(userId))
                         )
                 );
-                for (Map.Entry<Integer, ZipFileHeader> entry : unzipState.getFiles().entrySet()) {
-                    mediaMessageService.sendFile(userId, unzipState.getFilesCache().get(entry.getKey()));
-                }
+                UnzipQueueItem item = queueService.createProcessingExtractAllItem(userId, messageId,
+                        unzipState.getFiles().values().stream().map(ZipFileHeader::getSize).mapToLong(i -> i).sum());
+                executor.execute(new AllInCacheTask(item));
             } else {
                 sendStartExtractingAllMessage(userId, messageId, unzipJobId);
                 UnzipQueueItem item = queueService.createProcessingExtractAllItem(userId, messageId,
@@ -461,6 +461,47 @@ public class UnzipService {
 
     private boolean isAllInCache(UnzipState unzipState) {
         return unzipState.getFilesCache().keySet().containsAll(unzipState.getFiles().keySet());
+    }
+
+    public class AllInCacheTask implements SmartExecutorService.Job {
+
+        private static final int SLEEP_TIME = 2500;
+
+        private UnzipQueueItem item;
+
+        private AllInCacheTask(UnzipQueueItem item) {
+            this.item = item;
+        }
+
+        @Override
+        public int getId() {
+            return item.getId();
+        }
+
+        @Override
+        public SmartExecutorService.JobWeight getWeight() {
+            return SmartExecutorService.JobWeight.LIGHT;
+        }
+
+        @Override
+        public void run() {
+            try {
+                UnzipState unzipState = commandStateService.getState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
+
+                for (Map.Entry<Integer, ZipFileHeader> entry : unzipState.getFiles().entrySet()) {
+                    mediaMessageService.sendFile(item.getUserId(), unzipState.getFilesCache().get(entry.getKey()));
+                    Thread.sleep(SLEEP_TIME);
+                }
+            } catch (Exception ex) {
+                LOGGER.error(ex.getMessage(), ex);
+
+                Locale locale = userService.getLocaleOrDefault(item.getUserId());
+                messageService.sendErrorMessage(item.getUserId(), locale);
+            } finally {
+                executor.complete(item.getId());
+                queueService.delete(item.getId());
+            }
+        }
     }
 
     public class ExtractAllTask implements SmartExecutorService.ProgressJob {
