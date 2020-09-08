@@ -90,11 +90,15 @@ public class UnzipQueueService {
         unzipQueueDao.delete(id);
     }
 
+    public UnzipQueueItem deleteWithReturning(int id) {
+        return unzipQueueDao.deleteWithReturning(id);
+    }
+
     public void setMessageId(int id, int messageId) {
         unzipQueueDao.setMessageId(id, messageId);
     }
 
-    public List<Integer> deleteByUserId(int userId) {
+    public List<UnzipQueueItem> deleteByUserId(int userId) {
         return unzipQueueDao.deleteByUserId(userId);
     }
 

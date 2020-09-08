@@ -252,11 +252,15 @@ public class UnzipService {
     }
 
     public void removeAndCancelCurrentTasks(long chatId) {
-        try {
-            List<Integer> ids = queueService.deleteByUserId((int) chatId);
-            executor.cancelAndComplete(ids, true);
-        } finally {
-            fileManager.fileWorkObject(chatId, -1).stop();
+        List<UnzipQueueItem> queueItems = queueService.deleteByUserId((int) chatId);
+        for (UnzipQueueItem unzipQueueItem : queueItems) {
+            if (unzipQueueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
+                if (!executor.cancelAndComplete(unzipQueueItem.getId(), true)) {
+                    fileManager.fileWorkObject(chatId, unzipQueueItem.getFile().getSize()).stop();
+                }
+            } else {
+                executor.cancelAndComplete(unzipQueueItem.getId(), true);
+            }
         }
         UnzipState unzipState = commandStateService.getState(chatId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
 
@@ -283,8 +287,8 @@ public class UnzipService {
                     localisationService.getMessage(MessagesProperties.MESSAGE_QUERY_CANCELED, userService.getLocaleOrDefault((int) chatId))
             ));
             if (!executor.cancelAndComplete(jobId, true)) {
-                queueService.delete(jobId);
-                fileManager.fileWorkObject(chatId, -1).stop();
+                UnzipQueueItem unzipQueueItem = queueService.deleteWithReturning(jobId);
+                fileManager.fileWorkObject(chatId, unzipQueueItem.getFile().getSize()).stop();
 
                 commandStateService.deleteState(chatId, CommandNames.START_COMMAND_NAME);
                 if (StringUtils.isNotBlank(unzipState.getArchivePath())) {

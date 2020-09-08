@@ -43,7 +43,7 @@ public class UnzipQueueDao {
                     },
                     keyHolder
             );
-        } else if (unzipQueueItem.getItemType() == UnzipQueueItem.ItemType.EXTRACT_FILE){
+        } else if (unzipQueueItem.getItemType() == UnzipQueueItem.ItemType.EXTRACT_FILE) {
             jdbcTemplate.update(
                     con -> {
                         PreparedStatement ps = con.prepareStatement("INSERT INTO unzip_queue(user_id, extract_file_id, message_id, status, item_type, extract_file_size) " +
@@ -128,9 +128,11 @@ public class UnzipQueueDao {
         );
     }
 
-    public List<Integer> deleteByUserId(int userId) {
-        return jdbcTemplate.query("WITH r AS (DELETE FROM unzip_queue WHERE user_id = ? RETURNING id) SELECT id FROM r", ps -> ps.setInt(1, userId),
-                (rs, rowNum) -> rs.getInt(UnzipQueueItem.ID));
+    public List<UnzipQueueItem> deleteByUserId(int userId) {
+        return jdbcTemplate.query("WITH r AS (DELETE FROM unzip_queue WHERE user_id = ? RETURNING id) SELECT *, (file).* FROM r",
+                ps -> ps.setInt(1, userId),
+                (rs, num) -> map(rs)
+        );
     }
 
     public Boolean exists(int id) {
