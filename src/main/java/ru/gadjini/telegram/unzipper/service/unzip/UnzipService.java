@@ -153,22 +153,11 @@ public class UnzipService {
             ));
             messageService.removeInlineKeyboard(userId, messageId);
         } else {
-            if (isAllInCache(unzipState)) {
-                messageService.sendAnswerCallbackQuery(
-                        new AnswerCallbackQuery(
-                                queryId,
-                                localisationService.getMessage(MessagesProperties.MESSAGE_UNZIP_PROCESSING_ANSWER, userService.getLocaleOrDefault(userId))
-                        )
-                );
-                UnzipQueueItem item = queueService.createProcessingExtractAllItem(userId, messageId,
-                        unzipState.getFiles().values().stream().map(ZipFileHeader::getSize).mapToLong(i -> i).sum());
-                executor.execute(new AllInCacheTask(item));
-            } else {
-                sendStartExtractingAllMessage(userId, messageId, unzipJobId);
-                UnzipQueueItem item = queueService.createProcessingExtractAllItem(userId, messageId,
-                        unzipState.getFiles().values().stream().map(ZipFileHeader::getSize).mapToLong(i -> i).sum());
-                executor.execute(new ExtractAllTask(item));
-            }
+            UnzipQueueItem item = queueService.createProcessingExtractAllItem(userId, messageId,
+                    unzipState.getFiles().values().stream().map(ZipFileHeader::getSize).mapToLong(i -> i).sum());
+            sendStartExtractingAllMessage(userId, messageId, item.getId());
+
+            executor.execute(new ExtractAllTask(item));
         }
     }
 
@@ -459,53 +448,6 @@ public class UnzipService {
         executor.shutdown();
     }
 
-    private boolean isAllInCache(UnzipState unzipState) {
-        return unzipState.getFilesCache().keySet().containsAll(unzipState.getFiles().keySet());
-    }
-
-    public class AllInCacheTask implements SmartExecutorService.Job {
-
-        private static final int SLEEP_TIME = 2500;
-
-        private UnzipQueueItem item;
-
-        private AllInCacheTask(UnzipQueueItem item) {
-            this.item = item;
-        }
-
-        @Override
-        public int getId() {
-            return item.getId();
-        }
-
-        @Override
-        public SmartExecutorService.JobWeight getWeight() {
-            return SmartExecutorService.JobWeight.LIGHT;
-        }
-
-        @Override
-        public void run() {
-            try {
-                UnzipState unzipState = commandStateService.getState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
-
-                if (unzipState != null) {
-                    for (Map.Entry<Integer, ZipFileHeader> entry : unzipState.getFiles().entrySet()) {
-                        mediaMessageService.sendFile(item.getUserId(), unzipState.getFilesCache().get(entry.getKey()));
-                        Thread.sleep(SLEEP_TIME);
-                    }
-                }
-            } catch (Exception ex) {
-                LOGGER.error(ex.getMessage(), ex);
-
-                Locale locale = userService.getLocaleOrDefault(item.getUserId());
-                messageService.sendErrorMessage(item.getUserId(), locale);
-            } finally {
-                executor.complete(item.getId());
-                queueService.delete(item.getId());
-            }
-        }
-    }
-
     public class ExtractAllTask implements SmartExecutorService.ProgressJob {
 
         private static final String TAG = "extractall";
@@ -547,7 +489,8 @@ public class UnzipService {
                     UnzipDevice unzipDevice = getCandidate(unzipState.getArchiveType());
 
                     int i = 1;
-                    for (Map.Entry<Integer, ZipFileHeader> entry : unzipState.getFiles().entrySet()) {
+                    for (Iterator<Map.Entry<Integer, ZipFileHeader>> iterator = unzipState.getFiles().entrySet().iterator(); iterator.hasNext(); ) {
+                        Map.Entry<Integer, ZipFileHeader> entry = iterator.next();
                         if (unzipState.getFilesCache().containsKey(entry.getKey())) {
                             String fileName = FilenameUtils.getName(entry.getValue().getPath());
                             mediaMessageService.sendFile(item.getUserId(), unzipState.getFilesCache().get(entry.getKey()), fileName);
@@ -570,7 +513,9 @@ public class UnzipService {
                             }
                         }
 
-                        Thread.sleep(SLEEP_TIME);
+                        if (iterator.hasNext()) {
+                            Thread.sleep(SLEEP_TIME);
+                        }
 
                         ++i;
                     }
