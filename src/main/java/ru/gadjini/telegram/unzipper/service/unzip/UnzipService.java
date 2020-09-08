@@ -467,7 +467,7 @@ public class UnzipService {
 
         private static final String TAG = "extractall";
 
-        private static final int SLEEP_TIME = 2000;
+        private static final int SLEEP_TIME = 2500;
 
         private UnzipQueueItem item;
 
@@ -519,7 +519,6 @@ public class UnzipService {
 
                             String fileName = FilenameUtils.getName(entry.getValue().getPath());
                             SendFileResult result = mediaMessageService.sendDocument(new SendDocument((long) item.getUserId(), fileName, file.getFile())
-                                    .setReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(item.getId(), locale))
                                     .setProgress(extractAllProgress(unzipState.getFiles().size(), i, item.getUserId(), item.getId(), item.getMessageId()))
                                     .setCaption(fileName));
                             if (result != null) {
