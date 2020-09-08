@@ -1,16 +1,12 @@
 package ru.gadjini.telegram.unzipper.common;
 
-public class CommandNames {
+public class UnzipCommandNames {
 
-    private CommandNames() {
+    private UnzipCommandNames() {
 
     }
 
     public static final String START_COMMAND_NAME = "start";
-
-    public static final String LANGUAGE_COMMAND_NAME = "language";
-
-    public static final String CALLBACK_DELEGATE_COMMAND_NAME = "n";
 
     public static final String EXTRACT_FILE_COMMAND_NAME = "p";
 

@@ -4,7 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import ru.gadjini.telegram.smart.bot.commons.command.api.CallbackBotCommand;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipService;
-import ru.gadjini.telegram.unzipper.common.CommandNames;
+import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.CallbackQuery;
 import ru.gadjini.telegram.unzipper.request.Arg;
 import ru.gadjini.telegram.smart.bot.commons.service.request.RequestParams;
@@ -21,7 +21,7 @@ public class CancelUnzipQueryCommand implements CallbackBotCommand {
 
     @Override
     public String getName() {
-        return CommandNames.CANCEL_UNZIP_QUERY;
+        return UnzipCommandNames.CANCEL_UNZIP_QUERY;
     }
 
     @Override

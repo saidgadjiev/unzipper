@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 import ru.gadjini.telegram.smart.bot.commons.command.api.CallbackBotCommand;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.CallbackQuery;
 import ru.gadjini.telegram.smart.bot.commons.service.request.RequestParams;
-import ru.gadjini.telegram.unzipper.common.CommandNames;
+import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.request.Arg;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipService;
 
@@ -21,7 +21,7 @@ public class CancelExtractFileQueryCommand implements CallbackBotCommand {
 
     @Override
     public String getName() {
-        return CommandNames.CANCEL_EXTRACT_FILE;
+        return UnzipCommandNames.CANCEL_EXTRACT_FILE;
     }
 
     @Override

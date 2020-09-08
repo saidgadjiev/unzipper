@@ -22,7 +22,7 @@ import ru.gadjini.telegram.smart.bot.commons.service.format.FormatCategory;
 import ru.gadjini.telegram.smart.bot.commons.service.format.FormatService;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.request.RequestParams;
-import ru.gadjini.telegram.unzipper.common.CommandNames;
+import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.unzipper.request.Arg;
 import ru.gadjini.telegram.unzipper.service.keyboard.UnzipBotReplyKeyboardService;
@@ -73,12 +73,12 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
 
     @Override
     public String getParentCommandName(long chatId) {
-        return CommandNames.START_COMMAND_NAME;
+        return UnzipCommandNames.START_COMMAND_NAME;
     }
 
     @Override
     public String getHistoryName() {
-        return CommandNames.START_COMMAND_NAME;
+        return UnzipCommandNames.START_COMMAND_NAME;
     }
 
     @Override
@@ -90,7 +90,7 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
 
     @Override
     public String getCommandIdentifier() {
-        return CommandNames.START_COMMAND_NAME;
+        return UnzipCommandNames.START_COMMAND_NAME;
     }
 
     @Override
@@ -102,7 +102,7 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
 
         unzipService.removeAndCancelCurrentTask(message.getChatId());
         UnzipState unzipState = createState(file.getFormat());
-        commandStateService.setState(message.getChatId(), CommandNames.START_COMMAND_NAME, unzipState);
+        commandStateService.setState(message.getChatId(), UnzipCommandNames.START_COMMAND_NAME, unzipState);
         unzipService.unzip(message.getFrom().getId(), message.getMessageId(), file, locale);
     }
 

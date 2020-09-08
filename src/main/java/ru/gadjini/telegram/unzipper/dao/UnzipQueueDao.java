@@ -129,7 +129,7 @@ public class UnzipQueueDao {
     }
 
     public UnzipQueueItem deleteByUserId(int userId) {
-        return jdbcTemplate.query("WITH r AS (DELETE FROM unzip_queue WHERE user_id = ? RETURNING id) SELECT *, (file).* FROM r",
+        return jdbcTemplate.query("WITH r AS (DELETE FROM unzip_queue WHERE user_id = ? RETURNING *) SELECT *, (file).* FROM r",
                 ps -> ps.setInt(1, userId),
                 rs -> rs.next() ? map(rs) : null
         );

@@ -8,7 +8,7 @@ import ru.gadjini.telegram.smart.bot.commons.command.api.BotCommand;
 import ru.gadjini.telegram.smart.bot.commons.command.api.NavigableBotCommand;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
-import ru.gadjini.telegram.unzipper.common.CommandNames;
+import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.HtmlMessage;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.Message;
@@ -90,11 +90,11 @@ public class UnzipperBotService {
     }
 
     private boolean restoreCommand(long chatId, String command) {
-        if (StringUtils.isNotBlank(command) && command.startsWith(BotCommand.COMMAND_INIT_CHARACTER + CommandNames.START_COMMAND_NAME)) {
+        if (StringUtils.isNotBlank(command) && command.startsWith(BotCommand.COMMAND_INIT_CHARACTER + UnzipCommandNames.START_COMMAND_NAME)) {
             return false;
         }
         if (commandNavigator.isEmpty(chatId)) {
-            commandNavigator.zeroRestore(chatId, (NavigableBotCommand) commandExecutor.getBotCommand(CommandNames.START_COMMAND_NAME));
+            commandNavigator.zeroRestore(chatId, (NavigableBotCommand) commandExecutor.getBotCommand(UnzipCommandNames.START_COMMAND_NAME));
             Locale locale = userService.getLocaleOrDefault((int) chatId);
             messageService.sendBotRestartedMessage(chatId, replyKeyboardService.removeKeyboard(chatId), locale);
 

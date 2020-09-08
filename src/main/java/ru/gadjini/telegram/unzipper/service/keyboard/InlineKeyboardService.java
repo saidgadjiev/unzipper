@@ -4,7 +4,7 @@ import com.google.common.collect.Lists;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.InlineKeyboardMarkup;
-import ru.gadjini.telegram.unzipper.common.CommandNames;
+import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.buttons.InlineKeyboardButton;
 
 import java.util.ArrayList;
@@ -28,12 +28,12 @@ public class InlineKeyboardService {
 
         if (!(offset == 0 && filesIds.size() == limit)) {
             if (filesIds.size() == offset + limit) {
-                inlineKeyboardMarkup.getKeyboard().add(List.of(buttonFactory.toPrevPage(CommandNames.START_COMMAND_NAME, limit, Math.max(0, offset - prevLimit), locale)));
+                inlineKeyboardMarkup.getKeyboard().add(List.of(buttonFactory.toPrevPage(UnzipCommandNames.START_COMMAND_NAME, limit, Math.max(0, offset - prevLimit), locale)));
             } else if (offset == 0) {
-                inlineKeyboardMarkup.getKeyboard().add(List.of(buttonFactory.toNextPage(CommandNames.START_COMMAND_NAME, limit, offset + limit, locale)));
+                inlineKeyboardMarkup.getKeyboard().add(List.of(buttonFactory.toNextPage(UnzipCommandNames.START_COMMAND_NAME, limit, offset + limit, locale)));
             } else {
-                inlineKeyboardMarkup.getKeyboard().add(List.of(buttonFactory.toPrevPage(CommandNames.START_COMMAND_NAME, limit, Math.max(0, offset - prevLimit), locale),
-                        buttonFactory.toNextPage(CommandNames.START_COMMAND_NAME, limit, offset + limit, locale)));
+                inlineKeyboardMarkup.getKeyboard().add(List.of(buttonFactory.toPrevPage(UnzipCommandNames.START_COMMAND_NAME, limit, Math.max(0, offset - prevLimit), locale),
+                        buttonFactory.toNextPage(UnzipCommandNames.START_COMMAND_NAME, limit, offset + limit, locale)));
             }
         }
         List<List<Integer>> lists = Lists.partition(filesIds.stream().skip(offset).limit(limit).collect(Collectors.toCollection(ArrayList::new)), 4);

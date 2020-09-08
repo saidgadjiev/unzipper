@@ -32,8 +32,8 @@ import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MediaMessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.utils.MemoryUtils;
-import ru.gadjini.telegram.unzipper.common.CommandNames;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
+import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
 import ru.gadjini.telegram.unzipper.service.keyboard.InlineKeyboardService;
@@ -137,7 +137,7 @@ public class UnzipService {
     }
 
     public void extractAll(int userId, int messageId, int unzipJobId, String queryId) {
-        UnzipState unzipState = commandStateService.getState(userId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
+        UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
         if (unzipState == null) {
             messageService.sendAnswerCallbackQuery(new AnswerCallbackQuery(
                     queryId,
@@ -173,7 +173,7 @@ public class UnzipService {
     }
 
     public void extractFile(int userId, int messageId, int unzipJobId, int extractFileId, String queryId) {
-        UnzipState unzipState = commandStateService.getState(userId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
+        UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
         if (unzipState == null) {
             messageService.sendAnswerCallbackQuery(new AnswerCallbackQuery(
                     queryId,
@@ -208,7 +208,7 @@ public class UnzipService {
     }
 
     public void nextOrPrev(String queryId, long chatId, int userId, int messageId, int prevLimit, int offset) {
-        UnzipState unzipState = commandStateService.getState(userId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
+        UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
         if (unzipState == null) {
             messageService.sendAnswerCallbackQuery(new AnswerCallbackQuery(
                     queryId,
@@ -239,9 +239,9 @@ public class UnzipService {
     public void unzip(int userId, int replyToMessageId, MessageMedia file, Locale locale) {
         checkCandidate(file.getFormat(), locale);
         UnzipQueueItem queueItem = queueService.createProcessingUnzipItem(userId, file);
-        UnzipState unzipState = commandStateService.getState(userId, CommandNames.START_COMMAND_NAME, true, UnzipState.class);
+        UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
         unzipState.setUnzipJobId(queueItem.getId());
-        commandStateService.setState(userId, CommandNames.START_COMMAND_NAME, unzipState);
+        commandStateService.setState(userId, UnzipCommandNames.START_COMMAND_NAME, unzipState);
 
         sendStartUnzippingMessage(userId, queueItem.getId(), file.getFileSize(), locale, message -> {
             queueItem.setMessageId(message.getMessageId());
@@ -253,26 +253,28 @@ public class UnzipService {
 
     public void removeAndCancelCurrentTask(long chatId) {
         UnzipQueueItem unzipQueueItem = queueService.deleteByUserId((int) chatId);
-        if (unzipQueueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
-            if (!executor.cancelAndComplete(unzipQueueItem.getId(), true)) {
-                fileManager.fileWorkObject(chatId, unzipQueueItem.getFile().getSize()).stop();
+        if (unzipQueueItem != null) {
+            if (unzipQueueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
+                if (!executor.cancelAndComplete(unzipQueueItem.getId(), true)) {
+                    fileManager.fileWorkObject(chatId, unzipQueueItem.getFile().getSize()).stop();
+                }
+            } else {
+                executor.cancelAndComplete(unzipQueueItem.getId(), true);
             }
-        } else {
-            executor.cancelAndComplete(unzipQueueItem.getId(), true);
         }
-        UnzipState unzipState = commandStateService.getState(chatId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
+        UnzipState unzipState = commandStateService.getState(chatId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
 
         if (unzipState != null) {
             LOGGER.debug("Remove previous state({})", chatId);
             if (StringUtils.isNotBlank(unzipState.getArchivePath())) {
                 new SmartTempFile(new File(unzipState.getArchivePath())).smartDelete();
             }
-            commandStateService.deleteState(chatId, CommandNames.START_COMMAND_NAME);
+            commandStateService.deleteState(chatId, UnzipCommandNames.START_COMMAND_NAME);
         }
     }
 
     public void cancelUnzip(long chatId, int messageId, String queryId, int jobId) {
-        UnzipState unzipState = commandStateService.getState(chatId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
+        UnzipState unzipState = commandStateService.getState(chatId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
         if (unzipState == null || unzipState.getUnzipJobId() != jobId) {
             messageService.sendAnswerCallbackQuery(new AnswerCallbackQuery(
                     queryId,
@@ -286,9 +288,11 @@ public class UnzipService {
             ));
             if (!executor.cancelAndComplete(jobId, true)) {
                 UnzipQueueItem unzipQueueItem = queueService.deleteWithReturning(jobId);
-                fileManager.fileWorkObject(chatId, unzipQueueItem.getFile().getSize()).stop();
+                if (unzipQueueItem != null) {
+                    fileManager.fileWorkObject(chatId, unzipQueueItem.getFile().getSize()).stop();
+                }
 
-                commandStateService.deleteState(chatId, CommandNames.START_COMMAND_NAME);
+                commandStateService.deleteState(chatId, UnzipCommandNames.START_COMMAND_NAME);
                 if (StringUtils.isNotBlank(unzipState.getArchivePath())) {
                     new SmartTempFile(new File(unzipState.getArchivePath())).smartDelete();
                 }
@@ -315,7 +319,7 @@ public class UnzipService {
             if (!executor.cancelAndComplete(jobId, true)) {
                 queueService.delete(jobId);
             }
-            UnzipState unzipState = commandStateService.getState(chatId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
+            UnzipState unzipState = commandStateService.getState(chatId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
             if (unzipState != null) {
                 Locale locale = userService.getLocaleOrDefault((int) chatId);
                 UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, 0, locale);
@@ -493,7 +497,7 @@ public class UnzipService {
             LOGGER.debug("Start extract all({}, {})", item.getUserId(), size);
 
             try {
-                UnzipState unzipState = commandStateService.getState(item.getUserId(), CommandNames.START_COMMAND_NAME, true, UnzipState.class);
+                UnzipState unzipState = commandStateService.getState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
 
                 try {
                     Locale locale = userService.getLocaleOrDefault(item.getUserId());
@@ -520,7 +524,7 @@ public class UnzipService {
                                     .setCaption(fileName));
                             if (result != null) {
                                 unzipState.getFilesCache().put(entry.getKey(), result.getFileId());
-                                commandStateService.setState(item.getUserId(), CommandNames.START_COMMAND_NAME, unzipState);
+                                commandStateService.setState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, unzipState);
                             }
                         }
 
@@ -625,7 +629,7 @@ public class UnzipService {
             String size;
 
             try {
-                UnzipState unzipState = commandStateService.getState(userId, CommandNames.START_COMMAND_NAME, true, UnzipState.class);
+                UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
                 try {
                     ZipFileHeader fileHeader = unzipState.getFiles().get(id);
                     size = MemoryUtils.humanReadableByteCount(fileHeader.getSize());
@@ -641,7 +645,7 @@ public class UnzipService {
                             .setCaption(fileName));
                     if (result != null) {
                         unzipState.getFilesCache().put(id, result.getFileId());
-                        commandStateService.setState(userId, CommandNames.START_COMMAND_NAME, unzipState);
+                        commandStateService.setState(userId, UnzipCommandNames.START_COMMAND_NAME, unzipState);
                     }
                     LOGGER.debug("Finish({}, {})", userId, size);
                 } finally {
@@ -762,7 +766,7 @@ public class UnzipService {
                 messageService.editMessage(new EditMessageText(userId, messageId, messageBuilder.buildUnzipProgressMessage(UnzipStep.COMPLETED, Lang.JAVA, locale)));
                 messageService.sendMessage(new SendMessage((long) userId, filesList.getMessage())
                         .setReplyMarkup(inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), 0, filesList.getOffset(), jobId, locale)));
-                commandStateService.setState(userId, CommandNames.START_COMMAND_NAME, unzipState);
+                commandStateService.setState(userId, UnzipCommandNames.START_COMMAND_NAME, unzipState);
 
                 LOGGER.debug("Finish({}, {}, {})", userId, size, format);
             } catch (Exception e) {
@@ -771,7 +775,7 @@ public class UnzipService {
                     if (in != null) {
                         in.smartDelete();
                     }
-                    commandStateService.deleteState(userId, CommandNames.START_COMMAND_NAME);
+                    commandStateService.deleteState(userId, UnzipCommandNames.START_COMMAND_NAME);
                     Locale locale = userService.getLocaleOrDefault(userId);
                     if (e instanceof ProcessException) {
                         messageService.sendMessage(new SendMessage((long) userId, localisationService.getMessage(MessagesProperties.MESSAGE_UNZIP_ERROR, locale)));
@@ -807,7 +811,7 @@ public class UnzipService {
                 queueService.delete(jobId);
                 LOGGER.debug("Unzip canceled by user({}, {})", userId, MemoryUtils.humanReadableByteCount(fileSize));
             }
-            commandStateService.deleteState(userId, CommandNames.START_COMMAND_NAME);
+            commandStateService.deleteState(userId, UnzipCommandNames.START_COMMAND_NAME);
             fileWorkObject.stop();
         }
 
@@ -832,7 +836,7 @@ public class UnzipService {
         }
 
         private UnzipState initAndGetState(String zipFile) {
-            UnzipState unzipState = commandStateService.getState(userId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
+            UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
             if (unzipState == null) {
                 return null;
             }
