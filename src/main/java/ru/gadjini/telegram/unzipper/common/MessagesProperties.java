@@ -70,4 +70,6 @@ public class MessagesProperties {
     public static final String MESSAGE_UNZIP_PROCESSING = "message.unzip.processing";
 
     public static final String MESSAGE_SPEED = "message.speed";
+
+    public static final String MESSAGE_BOT_IS_SLEEPING = "message.bot.is.sleeping";
 }

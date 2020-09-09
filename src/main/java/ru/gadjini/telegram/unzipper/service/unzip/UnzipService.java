@@ -2,17 +2,21 @@ package ru.gadjini.telegram.unzipper.service.unzip;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import ru.gadjini.telegram.smart.bot.commons.exception.DownloadCanceledException;
+import ru.gadjini.telegram.smart.bot.commons.exception.FloodWaitException;
 import ru.gadjini.telegram.smart.bot.commons.exception.ProcessException;
 import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.smart.bot.commons.exception.botapi.TelegramApiException;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
 import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
 import ru.gadjini.telegram.smart.bot.commons.model.SendFileResult;
+import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.HtmlMessage;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.SendDocument;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.SendMessage;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.updatemessages.EditMessageText;
@@ -757,16 +761,35 @@ public class UnzipService {
 
                 LOGGER.debug("Finish({}, {}, {})", userId, size, format);
             } catch (Exception e) {
-                if (checker == null || !checker.get()) {
-                    LOGGER.error(e.getMessage(), e);
+                if (checker == null || !checker.get() || ExceptionUtils.indexOfThrowable(e, DownloadCanceledException.class) == -1) {
                     if (in != null) {
                         in.smartDelete();
                     }
                     commandStateService.deleteState(userId, UnzipCommandNames.START_COMMAND_NAME);
                     Locale locale = userService.getLocaleOrDefault(userId);
+
+                    int floodWaitExceptionIndexOf = ExceptionUtils.indexOfThrowable(e, FloodWaitException.class);
                     if (e instanceof ProcessException) {
+                        LOGGER.error(e.getMessage(), e);
                         messageService.sendMessage(new SendMessage((long) userId, localisationService.getMessage(MessagesProperties.MESSAGE_UNZIP_ERROR, locale)));
+                    } else if (floodWaitExceptionIndexOf != -1) {
+                        LOGGER.error(e.getMessage());
+                        fileManager.resetLimits(userId);
+                        FloodWaitException floodWaitException = (FloodWaitException) ExceptionUtils.getThrowableList(e).get(floodWaitExceptionIndexOf);
+                        try {
+                            messageService.editMessage(new EditMessageText((long) userId,
+                                    messageId,
+                                    localisationService.getMessage(MessagesProperties.MESSAGE_BOT_IS_SLEEPING,
+                                            new Object[]{floodWaitException.getSleepTime()},
+                                            locale)).setThrowEx(true));
+                        } catch (Exception exp) {
+                            messageService.sendMessage(new HtmlMessage((long) userId,
+                                    localisationService.getMessage(MessagesProperties.MESSAGE_BOT_IS_SLEEPING,
+                                            new Object[]{floodWaitException.getSleepTime()},
+                                            locale)));
+                        }
                     } else {
+                        LOGGER.error(e.getMessage(), e);
                         messageService.sendErrorMessage(userId, locale);
                     }
                 }
