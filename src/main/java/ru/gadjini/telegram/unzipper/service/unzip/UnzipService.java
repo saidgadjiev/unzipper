@@ -120,7 +120,7 @@ public class UnzipService {
         LOGGER.debug("Rejected({}, {})", job.getId(), job.getWeight());
     }
 
-    public Runnable getTask(SmartExecutorService.JobWeight weight) {
+    public SmartExecutorService.Job getTask(SmartExecutorService.JobWeight weight) {
         synchronized (this) {
             UnzipQueueItem peek = queueService.poll(weight);
 
@@ -479,7 +479,7 @@ public class UnzipService {
         }
 
         @Override
-        public void run() {
+        public void execute() {
             String size = MemoryUtils.humanReadableByteCount(item.getExtractFileSize());
             LOGGER.debug("Start extract all({}, {})", item.getUserId(), size);
 
@@ -572,7 +572,7 @@ public class UnzipService {
         }
 
         @Override
-        public String getErrorCode() {
+        public String getErrorCode(Exception e) {
             return MessagesProperties.MESSAGE_UNZIP_ERROR;
         }
 
@@ -613,7 +613,7 @@ public class UnzipService {
         }
 
         @Override
-        public void run() {
+        public void execute() {
             String size;
 
             try {
@@ -694,7 +694,7 @@ public class UnzipService {
         }
 
         @Override
-        public String getErrorCode() {
+        public String getErrorCode(Exception e) {
             return MessagesProperties.MESSAGE_EXTRACT_FILE_ERROR;
         }
 
@@ -734,7 +734,7 @@ public class UnzipService {
         }
 
         @Override
-        public void run() {
+        public void execute() {
             fileWorkObject.start();
             String size = MemoryUtils.humanReadableByteCount(fileSize);
             LOGGER.debug("Start({}, {}, {}, {})", userId, size, format, fileId);
@@ -817,7 +817,7 @@ public class UnzipService {
         }
 
         @Override
-        public String getErrorCode() {
+        public String getErrorCode(Exception e) {
             return MessagesProperties.MESSAGE_UNZIP_ERROR;
         }
 

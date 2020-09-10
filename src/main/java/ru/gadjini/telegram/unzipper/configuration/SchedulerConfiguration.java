@@ -72,9 +72,9 @@ public class SchedulerConfiguration {
                 }) {
             @Override
             protected void afterExecute(Runnable r, Throwable t) {
-                Runnable poll = unzipService.getTask(SmartExecutorService.JobWeight.LIGHT);
+                SmartExecutorService.Job poll = unzipService.getTask(SmartExecutorService.JobWeight.LIGHT);
                 if (poll != null) {
-                    execute(poll);
+                    executorService.execute(poll);
                 }
             }
         };
@@ -87,9 +87,9 @@ public class SchedulerConfiguration {
                 }) {
             @Override
             protected void afterExecute(Runnable r, Throwable t) {
-                Runnable poll = unzipService.getTask(SmartExecutorService.JobWeight.HEAVY);
+                SmartExecutorService.Job poll = unzipService.getTask(SmartExecutorService.JobWeight.HEAVY);
                 if (poll != null) {
-                    execute(poll);
+                    executorService.execute(poll);
                 }
             }
         };
