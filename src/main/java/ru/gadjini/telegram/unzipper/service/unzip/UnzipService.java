@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.gadjini.telegram.smart.bot.commons.exception.DownloadCanceledException;
-import ru.gadjini.telegram.smart.bot.commons.exception.TaskCanceledException;
 import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.smart.bot.commons.exception.botapi.TelegramApiException;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
@@ -479,7 +478,7 @@ public class UnzipService {
         }
 
         @Override
-        public void execute() {
+        public void execute() throws Exception {
             String size = MemoryUtils.humanReadableByteCount(item.getExtractFileSize());
             LOGGER.debug("Start extract all({}, {})", item.getUserId(), size);
 
@@ -522,8 +521,6 @@ public class UnzipService {
                         ++i;
                     }
                     LOGGER.debug("Finish extract all({}, {})", item.getUserId(), size);
-                } catch (InterruptedException e) {
-                    throw new TaskCanceledException(e);
                 } finally {
                     if (checker == null || !checker.get()) {
                         finishExtracting(item.getUserId(), item.getMessageId(), unzipState);
