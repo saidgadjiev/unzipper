@@ -9,14 +9,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.gadjini.telegram.smart.bot.commons.exception.DownloadCanceledException;
-import ru.gadjini.telegram.smart.bot.commons.exception.FloodWaitException;
-import ru.gadjini.telegram.smart.bot.commons.exception.ProcessException;
+import ru.gadjini.telegram.smart.bot.commons.exception.TaskCanceledException;
 import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.smart.bot.commons.exception.botapi.TelegramApiException;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
 import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
 import ru.gadjini.telegram.smart.bot.commons.model.SendFileResult;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.HtmlMessage;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.SendDocument;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.SendMessage;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.updatemessages.EditMessageText;
@@ -452,7 +450,7 @@ public class UnzipService {
         executor.shutdown();
     }
 
-    public class ExtractAllTask implements SmartExecutorService.ProgressJob {
+    public class ExtractAllTask implements SmartExecutorService.Job {
 
         private static final String TAG = "extractall";
 
@@ -524,22 +522,11 @@ public class UnzipService {
                         ++i;
                     }
                     LOGGER.debug("Finish extract all({}, {})", item.getUserId(), size);
+                } catch (InterruptedException e) {
+                    throw new TaskCanceledException(e);
                 } finally {
                     if (checker == null || !checker.get()) {
                         finishExtracting(item.getUserId(), item.getMessageId(), unzipState);
-                    }
-                }
-            } catch (UserException ex) {
-                throw ex;
-            } catch (Exception ex) {
-                if (checker == null || !checker.get()) {
-                    LOGGER.error(ex.getMessage(), ex);
-
-                    Locale locale = userService.getLocaleOrDefault(item.getUserId());
-                    if (ex instanceof ProcessException) {
-                        messageService.sendMessage(new SendMessage((long) item.getUserId(), localisationService.getMessage(MessagesProperties.MESSAGE_UNZIP_ERROR, locale)));
-                    } else {
-                        messageService.sendErrorMessage(item.getUserId(), locale);
                     }
                 }
             } finally {
@@ -554,6 +541,11 @@ public class UnzipService {
         @Override
         public void setCancelChecker(Supplier<Boolean> checker) {
             this.checker = checker;
+        }
+
+        @Override
+        public Supplier<Boolean> getCancelChecker() {
+            return checker;
         }
 
         @Override
@@ -580,12 +572,17 @@ public class UnzipService {
         }
 
         @Override
+        public String getErrorCode() {
+            return MessagesProperties.MESSAGE_UNZIP_ERROR;
+        }
+
+        @Override
         public long getChatId() {
             return item.getUserId();
         }
     }
 
-    public class ExtractFileTask implements SmartExecutorService.ProgressJob {
+    public class ExtractFileTask implements SmartExecutorService.Job {
 
         private static final String TAG = "extractfile";
 
@@ -644,18 +641,6 @@ public class UnzipService {
                         finishExtracting(userId, messageId, unzipState);
                     }
                 }
-            } catch (UserException ex) {
-                throw ex;
-            } catch (Exception ex) {
-                if (checker == null || !checker.get()) {
-                    LOGGER.error(ex.getMessage(), ex);
-                    Locale locale = userService.getLocaleOrDefault(userId);
-                    if (ex instanceof ProcessException) {
-                        messageService.sendMessage(new SendMessage((long) userId, localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACT_FILE_ERROR, locale)));
-                    } else {
-                        messageService.sendErrorMessage(userId, locale);
-                    }
-                }
             } finally {
                 if (checker == null || !checker.get()) {
                     executor.complete(jobId);
@@ -675,6 +660,11 @@ public class UnzipService {
         @Override
         public void setCancelChecker(Supplier<Boolean> checker) {
             this.checker = checker;
+        }
+
+        @Override
+        public Supplier<Boolean> getCancelChecker() {
+            return checker;
         }
 
         @Override
@@ -704,12 +694,17 @@ public class UnzipService {
         }
 
         @Override
+        public String getErrorCode() {
+            return MessagesProperties.MESSAGE_EXTRACT_FILE_ERROR;
+        }
+
+        @Override
         public long getChatId() {
             return userId;
         }
     }
 
-    public class UnzipTask implements SmartExecutorService.ProgressJob {
+    public class UnzipTask implements SmartExecutorService.Job {
 
         private static final String TAG = "unzip";
 
@@ -766,32 +761,8 @@ public class UnzipService {
                         in.smartDelete();
                     }
                     commandStateService.deleteState(userId, UnzipCommandNames.START_COMMAND_NAME);
-                    Locale locale = userService.getLocaleOrDefault(userId);
 
-                    int floodWaitExceptionIndexOf = ExceptionUtils.indexOfThrowable(e, FloodWaitException.class);
-                    if (e instanceof ProcessException) {
-                        LOGGER.error(e.getMessage(), e);
-                        messageService.sendMessage(new SendMessage((long) userId, localisationService.getMessage(MessagesProperties.MESSAGE_UNZIP_ERROR, locale)));
-                    } else if (floodWaitExceptionIndexOf != -1) {
-                        LOGGER.error(e.getMessage());
-                        fileManager.resetLimits(userId);
-                        FloodWaitException floodWaitException = (FloodWaitException) ExceptionUtils.getThrowableList(e).get(floodWaitExceptionIndexOf);
-                        try {
-                            messageService.editMessage(new EditMessageText((long) userId,
-                                    messageId,
-                                    localisationService.getMessage(MessagesProperties.MESSAGE_BOT_IS_SLEEPING,
-                                            new Object[]{floodWaitException.getSleepTime()},
-                                            locale)).setThrowEx(true));
-                        } catch (Exception exp) {
-                            messageService.sendMessage(new HtmlMessage((long) userId,
-                                    localisationService.getMessage(MessagesProperties.MESSAGE_BOT_IS_SLEEPING,
-                                            new Object[]{floodWaitException.getSleepTime()},
-                                            locale)));
-                        }
-                    } else {
-                        LOGGER.error(e.getMessage(), e);
-                        messageService.sendErrorMessage(userId, locale);
-                    }
+                    throw e;
                 }
             } finally {
                 if (checker == null || !checker.get()) {
@@ -810,6 +781,11 @@ public class UnzipService {
         @Override
         public void setCancelChecker(Supplier<Boolean> checker) {
             this.checker = checker;
+        }
+
+        @Override
+        public Supplier<Boolean> getCancelChecker() {
+            return checker;
         }
 
         @Override
@@ -838,6 +814,11 @@ public class UnzipService {
         @Override
         public int getProgressMessageId() {
             return messageId;
+        }
+
+        @Override
+        public String getErrorCode() {
+            return MessagesProperties.MESSAGE_UNZIP_ERROR;
         }
 
         @Override

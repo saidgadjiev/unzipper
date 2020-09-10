@@ -9,8 +9,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import ru.gadjini.telegram.smart.bot.commons.exception.botapi.TelegramApiRequestException;
+import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
 import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
+import ru.gadjini.telegram.smart.bot.commons.service.file.FileManager;
+import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipService;
 
 import java.util.Map;
@@ -57,8 +60,9 @@ public class SchedulerConfiguration {
 
     @Bean
     @Qualifier("unzipTaskExecutor")
-    public SmartExecutorService unzipTaskExecutor() {
-        SmartExecutorService executorService = new SmartExecutorService();
+    public SmartExecutorService unzipTaskExecutor(UserService userService, FileManager fileManager,
+                                                  @Qualifier("messageLimits") MessageService messageService, LocalisationService localisationService) {
+        SmartExecutorService executorService = new SmartExecutorService(messageService, localisationService, fileManager, userService);
         ThreadPoolExecutor lightTaskExecutor = new ThreadPoolExecutor(2, 2,
                 0, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(10),
