@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.gadjini.telegram.smart.bot.commons.exception.DownloadCanceledException;
+import ru.gadjini.telegram.smart.bot.commons.exception.ProcessException;
 import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.smart.bot.commons.exception.botapi.TelegramApiException;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
@@ -570,7 +571,11 @@ public class UnzipService {
 
         @Override
         public String getErrorCode(Exception e) {
-            return MessagesProperties.MESSAGE_UNZIP_ERROR;
+            if (e instanceof ProcessException) {
+                return MessagesProperties.MESSAGE_UNZIP_ERROR;
+            }
+
+            return null;
         }
 
         @Override
@@ -692,7 +697,11 @@ public class UnzipService {
 
         @Override
         public String getErrorCode(Exception e) {
-            return MessagesProperties.MESSAGE_EXTRACT_FILE_ERROR;
+            if (e instanceof ProcessException) {
+                return MessagesProperties.MESSAGE_EXTRACT_FILE_ERROR;
+            }
+
+            return null;
         }
 
         @Override
@@ -815,7 +824,11 @@ public class UnzipService {
 
         @Override
         public String getErrorCode(Exception e) {
-            return MessagesProperties.MESSAGE_UNZIP_ERROR;
+            if (e instanceof ProcessException) {
+                return MessagesProperties.MESSAGE_UNZIP_ERROR;
+            }
+
+            return null;
         }
 
         @Override
