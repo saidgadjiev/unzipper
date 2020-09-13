@@ -198,31 +198,27 @@ public class UnzipService {
         }
     }
 
-    public void nextOrPrev(String queryId, long chatId, int userId, int messageId, int prevLimit, int offset) {
-        UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
-        if (unzipState == null) {
-            messageService.sendAnswerCallbackQuery(new AnswerCallbackQuery(
-                    queryId,
-                    localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACT_FILE_IMPOSSIBLE, userService.getLocaleOrDefault(userId)),
-                    true
-            ));
-            messageService.removeInlineKeyboard(userId, messageId);
-        } else {
-            Locale locale = userService.getLocaleOrDefault(userId);
-            UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, offset, locale);
-            InlineKeyboardMarkup filesListKeyboard = inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(),
-                    filesList.getLimit(), prevLimit, offset, unzipState.getUnzipJobId(), locale);
+    public void nextOrPrev(long chatId, int userId, int messageId, int prevLimit, int offset) {
+        UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
 
-            try {
-                messageService.editMessage(new EditMessageText(chatId, messageId, filesList.getMessage())
-                        .setThrowEx(true)
-                        .setReplyMarkup(filesListKeyboard));
-            } catch (Exception e) {
-                messageService.sendMessage(new SendMessage((long) userId, filesList.getMessage())
-                        .setReplyMarkup(inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), 0, filesList.getOffset(), unzipState.getUnzipJobId(), locale)));
-                if (!(e instanceof TelegramApiException)) {
-                    LOGGER.error(e.getMessage(), e);
-                }
+        Locale locale = userService.getLocaleOrDefault(userId);
+        UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, offset, locale);
+        InlineKeyboardMarkup filesListKeyboard = inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(),
+                filesList.getLimit(), prevLimit, offset, unzipState.getUnzipJobId(), locale);
+
+        unzipState.setPrevLimit(prevLimit);
+        unzipState.setOffset(offset);
+
+        commandStateService.setState(userId, UnzipCommandNames.START_COMMAND_NAME, unzipState);
+        try {
+            messageService.editMessage(new EditMessageText(chatId, messageId, filesList.getMessage())
+                    .setThrowEx(true)
+                    .setReplyMarkup(filesListKeyboard));
+        } catch (Exception e) {
+            messageService.sendMessage(new SendMessage((long) userId, filesList.getMessage())
+                    .setReplyMarkup(inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), 0, filesList.getOffset(), unzipState.getUnzipJobId(), locale)));
+            if (!(e instanceof TelegramApiException)) {
+                LOGGER.error(e.getMessage(), e);
             }
         }
     }
@@ -313,8 +309,8 @@ public class UnzipService {
             UnzipState unzipState = commandStateService.getState(chatId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
             if (unzipState != null) {
                 Locale locale = userService.getLocaleOrDefault((int) chatId);
-                UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, 0, locale);
-                InlineKeyboardMarkup filesListKeyboard = inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), 0, filesList.getOffset(), unzipState.getUnzipJobId(), locale);
+                UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, unzipState.getOffset(), locale);
+                InlineKeyboardMarkup filesListKeyboard = inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), unzipState.getPrevLimit(), filesList.getOffset(), unzipState.getUnzipJobId(), locale);
                 messageService.editMessage(new EditMessageText(chatId, messageId, filesList.getMessage())
                         .setReplyMarkup(filesListKeyboard));
             }
@@ -369,8 +365,9 @@ public class UnzipService {
 
     private void finishExtracting(int userId, int messageId, UnzipState unzipState) {
         Locale locale = userService.getLocaleOrDefault(userId);
-        UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, 0, locale);
-        InlineKeyboardMarkup filesListKeyboard = inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), 0, filesList.getOffset(), unzipState.getUnzipJobId(), locale);
+
+        UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, unzipState.getOffset(), locale);
+        InlineKeyboardMarkup filesListKeyboard = inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), unzipState.getPrevLimit(), filesList.getOffset(), unzipState.getUnzipJobId(), locale);
 
         messageService.editMessage(new EditMessageText(userId, messageId, messageBuilder.buildExtractFileProgressMessage(ExtractFileStep.COMPLETED, Lang.JAVA, locale)));
         messageService.sendMessage(new SendMessage((long) userId, filesList.getMessage())

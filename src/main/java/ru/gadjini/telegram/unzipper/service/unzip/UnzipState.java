@@ -20,6 +20,10 @@ public class UnzipState {
 
     private final Map<Integer, String> filesCache = new HashMap<>();
 
+    private int prevLimit;
+
+    private int offset;
+
     public String getArchivePath() {
         return archivePath;
     }
@@ -54,5 +58,21 @@ public class UnzipState {
 
     public void setUnzipJobId(int unzipJobId) {
         this.unzipJobId = unzipJobId;
+    }
+
+    public int getPrevLimit() {
+        return prevLimit;
+    }
+
+    public void setPrevLimit(int prevLimit) {
+        this.prevLimit = prevLimit;
+    }
+
+    public int getOffset() {
+        return offset;
+    }
+
+    public void setOffset(int offset) {
+        this.offset = offset;
     }
 }

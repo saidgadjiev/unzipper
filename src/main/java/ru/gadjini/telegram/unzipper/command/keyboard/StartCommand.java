@@ -24,8 +24,8 @@ import ru.gadjini.telegram.smart.bot.commons.service.format.FormatCategory;
 import ru.gadjini.telegram.smart.bot.commons.service.format.FormatService;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.request.RequestParams;
-import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
+import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.request.Arg;
 import ru.gadjini.telegram.unzipper.service.keyboard.UnzipBotReplyKeyboardService;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipService;
@@ -111,7 +111,7 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
     @Override
     public void processNonCommandCallback(CallbackQuery callbackQuery, RequestParams requestParams) {
         if (requestParams.contains(Arg.PAGINATION.getKey())) {
-            unzipService.nextOrPrev(callbackQuery.getId(), callbackQuery.getMessage().getChatId(), callbackQuery.getFrom().getId(),
+            unzipService.nextOrPrev(callbackQuery.getMessage().getChatId(), callbackQuery.getFrom().getId(),
                     callbackQuery.getMessage().getMessageId(), requestParams.getInt(Arg.PREV_LIMIT.getKey()), requestParams.getInt(Arg.OFFSET.getKey()));
         }
     }
