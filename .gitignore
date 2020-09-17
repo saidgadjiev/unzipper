@@ -287,3 +287,4 @@ package.json
 package-lock.json
 node-modules/
 ImageTracer.jar
+fonts
