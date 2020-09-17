@@ -5,7 +5,6 @@ import org.springframework.stereotype.Service;
 import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
 import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
 import ru.gadjini.telegram.unzipper.dao.UnzipQueueDao;
-import ru.gadjini.telegram.unzipper.domain.TgFile;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 
 import java.util.List;
@@ -30,10 +29,7 @@ public class UnzipQueueService {
         queueItem.setType(any2AnyFile.getFormat());
         queueItem.setItemType(UnzipQueueItem.ItemType.UNZIP);
 
-        TgFile file = new TgFile();
-        file.setFileId(any2AnyFile.getFileId());
-        file.setSize(any2AnyFile.getFileSize());
-        queueItem.setFile(file);
+        queueItem.setFile(any2AnyFile.toTgFile());
 
         queueItem.setStatus(UnzipQueueItem.Status.PROCESSING);
 

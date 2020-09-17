@@ -1,5 +1,6 @@
 package ru.gadjini.telegram.unzipper.domain;
 
+import ru.gadjini.telegram.smart.bot.commons.domain.TgFile;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 
 public class UnzipQueueItem {
