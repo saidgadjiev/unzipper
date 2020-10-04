@@ -25,15 +25,18 @@ public class P7ZipUnzipDevice extends BaseUnzipDevice {
 
     private TempFileService tempFileService;
 
+    private ProcessExecutor processExecutor;
+
     @Autowired
-    public P7ZipUnzipDevice(TempFileService tempFileService) {
+    public P7ZipUnzipDevice(TempFileService tempFileService, ProcessExecutor processExecutor) {
         super(Set.of(Format.ZIP, Format.RAR));
         this.tempFileService = tempFileService;
+        this.processExecutor = processExecutor;
     }
 
     @Override
     public void unzip(int userId, String in, String out) {
-        new ProcessExecutor().execute(buildUnzipCommand(in, out));
+        processExecutor.execute(buildUnzipCommand(in, out));
     }
 
     @Override
@@ -41,7 +44,7 @@ public class P7ZipUnzipDevice extends BaseUnzipDevice {
         SmartTempFile txt = tempFileService.createTempFile(TAG, "txt");
 
         try {
-            new ProcessExecutor().executeWithFile(buildContentsCommand(zipFile), txt.getFile().getAbsolutePath());
+            processExecutor.executeWithFile(buildContentsCommand(zipFile), txt.getFile().getAbsolutePath());
 
             String contents = Files.readString(txt.toPath());
             int mainContentStartIndex = contents.indexOf("----------\n") + "----------\n".length();
@@ -82,7 +85,7 @@ public class P7ZipUnzipDevice extends BaseUnzipDevice {
 
     @Override
     public void unzip(String fileHeader, String archivePath, String out) {
-        new ProcessExecutor().executeWithFile(buildUnzipFileCommand(fileHeader, archivePath), out);
+        processExecutor.executeWithFile(buildUnzipFileCommand(fileHeader, archivePath), out);
     }
 
     private String[] buildContentsCommand(String in) {
