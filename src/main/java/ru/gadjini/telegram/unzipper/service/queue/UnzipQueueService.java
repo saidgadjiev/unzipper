@@ -23,7 +23,7 @@ public class UnzipQueueService {
         unzipQueueDao.resetProcessing();
     }
 
-    public UnzipQueueItem createProcessingUnzipItem(int userId, MessageMedia any2AnyFile) {
+    public UnzipQueueItem createUnzipItem(int userId, MessageMedia any2AnyFile) {
         UnzipQueueItem queueItem = new UnzipQueueItem();
         queueItem.setUserId(userId);
         queueItem.setType(any2AnyFile.getFormat());
@@ -31,7 +31,7 @@ public class UnzipQueueService {
 
         queueItem.setFile(any2AnyFile.toTgFile());
 
-        queueItem.setStatus(UnzipQueueItem.Status.PROCESSING);
+        queueItem.setStatus(UnzipQueueItem.Status.WAITING);
 
         int id = unzipQueueDao.create(queueItem);
         queueItem.setId(id);
@@ -39,13 +39,13 @@ public class UnzipQueueService {
         return queueItem;
     }
 
-    public UnzipQueueItem createProcessingExtractFileItem(int userId, int messageId, int extractFileId, long extractFileSize) {
+    public UnzipQueueItem createExtractFileItem(int userId, int messageId, int extractFileId, long extractFileSize) {
         UnzipQueueItem item = new UnzipQueueItem();
         item.setUserId(userId);
         item.setExtractFileId(extractFileId);
         item.setMessageId(messageId);
         item.setItemType(UnzipQueueItem.ItemType.EXTRACT_FILE);
-        item.setStatus(UnzipQueueItem.Status.PROCESSING);
+        item.setStatus(UnzipQueueItem.Status.WAITING);
         item.setExtractFileSize(extractFileSize);
 
         int jobId = unzipQueueDao.create(item);
@@ -54,12 +54,12 @@ public class UnzipQueueService {
         return item;
     }
 
-    public UnzipQueueItem createProcessingExtractAllItem(int userId, int messageId, long size) {
+    public UnzipQueueItem createExtractAllItem(int userId, int messageId, long size) {
         UnzipQueueItem item = new UnzipQueueItem();
         item.setUserId(userId);
         item.setMessageId(messageId);
         item.setExtractFileSize(size);
-        item.setStatus(UnzipQueueItem.Status.PROCESSING);
+        item.setStatus(UnzipQueueItem.Status.WAITING);
         item.setItemType(UnzipQueueItem.ItemType.EXTRACT_ALL);
 
         int jobId = unzipQueueDao.create(item);

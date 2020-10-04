@@ -26,6 +26,7 @@ import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.request.RequestParams;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
+import ru.gadjini.telegram.unzipper.job.UnzipperJob;
 import ru.gadjini.telegram.unzipper.request.Arg;
 import ru.gadjini.telegram.unzipper.service.keyboard.UnzipBotReplyKeyboardService;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipService;
@@ -39,6 +40,8 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
     private static final Logger LOGGER = LoggerFactory.getLogger(StartCommand.class);
 
     private UnzipService unzipService;
+
+    private UnzipperJob unzipperJob;
 
     private LocalisationService localisationService;
 
@@ -56,10 +59,13 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
 
     @Autowired
     public StartCommand(LocalisationService localisationService, UnzipService unzipService,
-                        @Qualifier("messageLimits") MessageService messageService, @Qualifier("curr") UnzipBotReplyKeyboardService replyKeyboardService,
-                        UserService userService, FormatService formatService, MessageMediaService fileService, CommandStateService commandStateService) {
+                        UnzipperJob unzipperJob, @Qualifier("messageLimits") MessageService messageService,
+                        @Qualifier("curr") UnzipBotReplyKeyboardService replyKeyboardService,
+                        UserService userService, FormatService formatService, MessageMediaService fileService,
+                        CommandStateService commandStateService) {
         this.localisationService = localisationService;
         this.unzipService = unzipService;
+        this.unzipperJob = unzipperJob;
         this.messageService = messageService;
         this.replyKeyboardService = replyKeyboardService;
         this.userService = userService;
@@ -102,7 +108,7 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
         MessageMedia file = fileService.getMedia(message, locale);
         file.setFormat(checkFormat(message.getFrom().getId(), format, message.getDocument().getMimeType(), message.getDocument().getFileName(), locale));
 
-        unzipService.removeAndCancelCurrentTask(message.getChatId());
+        unzipperJob.removeAndCancelCurrentTask(message.getChatId());
         UnzipState unzipState = createState(file.getFormat());
         commandStateService.setState(message.getChatId(), UnzipCommandNames.START_COMMAND_NAME, unzipState);
         unzipService.unzip(message.getFrom().getId(), message.getMessageId(), file, locale);

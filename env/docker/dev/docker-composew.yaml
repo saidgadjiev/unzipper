@@ -8,9 +8,9 @@ services:
       - ../../../data/unzipper/logs:/home/bot/app/logs
       - ../../../data/shr:/tmp/shr
     ports:
-      - 5001:5005
+      - 5005:5005
     env_file:
-      - .env.unzipper
+      - .env
     depends_on:
       - unzippermtproto
       - unzipperbotapi
@@ -19,7 +19,7 @@ services:
     restart: always
     build: ../../../../fileutils-rest/
     env_file:
-      - .env.unzipper
+      - .env
     volumes:
       - ../../../data/unzipper/gram:/home/bot/app/gram
       - ../../../data/shr:/tmp/shr
@@ -30,7 +30,7 @@ services:
     restart: always
     build: ../../../../fileutils-bot/
     env_file:
-      - .env.unzipper
+      - .env
     volumes:
       - ../../../data/unzipper/gram:/home/bot/app/gram
     depends_on:
@@ -40,7 +40,9 @@ services:
     restart: always
     build: ../../../../fileutils-bot-api/
     env_file:
-      - .env.unzipper
+      - .env
+    ports:
+      - 5004:5005
     volumes:
       - ../../../data/unzipper/logs:/app/logs
       - ../../../data/shr:/tmp/shr

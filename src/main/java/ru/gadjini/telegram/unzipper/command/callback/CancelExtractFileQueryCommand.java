@@ -6,17 +6,17 @@ import ru.gadjini.telegram.smart.bot.commons.command.api.CallbackBotCommand;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.CallbackQuery;
 import ru.gadjini.telegram.smart.bot.commons.service.request.RequestParams;
 import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
+import ru.gadjini.telegram.unzipper.job.UnzipperJob;
 import ru.gadjini.telegram.unzipper.request.Arg;
-import ru.gadjini.telegram.unzipper.service.unzip.UnzipService;
 
 @Component
 public class CancelExtractFileQueryCommand implements CallbackBotCommand {
 
-    private UnzipService unzipService;
+    private UnzipperJob unzipperJob;
 
     @Autowired
-    public CancelExtractFileQueryCommand(UnzipService unzipService) {
-        this.unzipService = unzipService;
+    public CancelExtractFileQueryCommand(UnzipperJob unzipperJob) {
+        this.unzipperJob = unzipperJob;
     }
 
     @Override
@@ -27,6 +27,6 @@ public class CancelExtractFileQueryCommand implements CallbackBotCommand {
     @Override
     public void processMessage(CallbackQuery callbackQuery, RequestParams requestParams) {
         int jobId = requestParams.getInt(Arg.JOB_ID.getKey());
-        unzipService.cancelExtractFile(callbackQuery.getMessage().getChatId(), callbackQuery.getMessage().getMessageId(), callbackQuery.getId(), jobId);
+        unzipperJob.cancelExtractFile(callbackQuery.getMessage().getChatId(), callbackQuery.getMessage().getMessageId(), callbackQuery.getId(), jobId);
     }
 }

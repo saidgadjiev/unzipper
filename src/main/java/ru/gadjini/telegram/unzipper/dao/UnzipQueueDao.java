@@ -32,12 +32,13 @@ public class UnzipQueueDao {
             jdbcTemplate.update(
                     con -> {
                         PreparedStatement ps = con.prepareStatement("INSERT INTO unzip_queue(user_id, file, type, status, item_type) " +
-                                "VALUES (?, ?, ?, ?, 0)", Statement.RETURN_GENERATED_KEYS);
+                                "VALUES (?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
 
                         ps.setInt(1, unzipQueueItem.getUserId());
                         ps.setObject(2, unzipQueueItem.getFile().sqlObject());
                         ps.setString(3, unzipQueueItem.getType().name());
                         ps.setInt(4, unzipQueueItem.getStatus().getCode());
+                        ps.setInt(5, unzipQueueItem.getItemType().getCode());
 
                         return ps;
                     },
@@ -47,13 +48,14 @@ public class UnzipQueueDao {
             jdbcTemplate.update(
                     con -> {
                         PreparedStatement ps = con.prepareStatement("INSERT INTO unzip_queue(user_id, extract_file_id, message_id, status, item_type, extract_file_size) " +
-                                "VALUES (?, ?, ?, 1, ?, ?)", Statement.RETURN_GENERATED_KEYS);
+                                "VALUES (?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
 
                         ps.setInt(1, unzipQueueItem.getUserId());
                         ps.setObject(2, unzipQueueItem.getExtractFileId());
                         ps.setInt(3, unzipQueueItem.getMessageId());
                         ps.setInt(4, unzipQueueItem.getStatus().getCode());
-                        ps.setLong(5, unzipQueueItem.getExtractFileSize());
+                        ps.setInt(5, unzipQueueItem.getItemType().getCode());
+                        ps.setLong(6, unzipQueueItem.getExtractFileSize());
 
                         return ps;
                     },
@@ -63,12 +65,13 @@ public class UnzipQueueDao {
             jdbcTemplate.update(
                     con -> {
                         PreparedStatement ps = con.prepareStatement("INSERT INTO unzip_queue(user_id, message_id, status, item_type, extract_file_size) " +
-                                "VALUES (?, ?, ?, 2, ?)", Statement.RETURN_GENERATED_KEYS);
+                                "VALUES (?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
 
                         ps.setInt(1, unzipQueueItem.getUserId());
                         ps.setInt(2, unzipQueueItem.getMessageId());
                         ps.setInt(3, unzipQueueItem.getStatus().getCode());
-                        ps.setLong(4, unzipQueueItem.getExtractFileSize());
+                        ps.setInt(4, unzipQueueItem.getItemType().getCode());
+                        ps.setLong(5, unzipQueueItem.getExtractFileSize());
 
                         return ps;
                     },

@@ -6,26 +6,26 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.stereotype.Component;
 import ru.gadjini.telegram.smart.bot.commons.service.file.FileManager;
-import ru.gadjini.telegram.unzipper.service.unzip.UnzipService;
+import ru.gadjini.telegram.unzipper.job.UnzipperJob;
 
 @Component
 public class ContextCloseListener implements ApplicationListener<ContextClosedEvent> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ContextCloseListener.class);
 
-    private UnzipService unzipService;
+    private UnzipperJob unzipperJob;
 
     private FileManager fileManager;
 
-    public ContextCloseListener(UnzipService unzipService, FileManager fileManager) {
-        this.unzipService = unzipService;
+    public ContextCloseListener(UnzipperJob unzipperJob, FileManager fileManager) {
+        this.unzipperJob = unzipperJob;
         this.fileManager = fileManager;
     }
 
     @Override
     public void onApplicationEvent(ContextClosedEvent event) {
         try {
-            unzipService.shutdown();
+            unzipperJob.shutdown();
         } catch (Throwable e) {
             LOGGER.error("Error shutdown unzipService. " + e.getMessage(), e);
         }
