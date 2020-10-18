@@ -5,9 +5,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 import ru.gadjini.telegram.smart.bot.commons.domain.TgFile;
+import ru.gadjini.telegram.smart.bot.commons.property.FileLimitProperties;
 import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
-import ru.gadjini.telegram.smart.bot.commons.utils.MemoryUtils;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 
 import java.sql.PreparedStatement;
@@ -21,9 +21,12 @@ public class UnzipQueueDao {
 
     private JdbcTemplate jdbcTemplate;
 
+    private FileLimitProperties fileLimitProperties;
+
     @Autowired
-    public UnzipQueueDao(JdbcTemplate jdbcTemplate) {
+    public UnzipQueueDao(JdbcTemplate jdbcTemplate, FileLimitProperties fileLimitProperties) {
         this.jdbcTemplate = jdbcTemplate;
+        this.fileLimitProperties = fileLimitProperties;
     }
 
     public int create(UnzipQueueItem unzipQueueItem) {
@@ -106,8 +109,8 @@ public class UnzipQueueDao {
                         "SELECT *, (file).*\n" +
                         "FROM r",
                 ps -> {
-                    ps.setLong(1, MemoryUtils.MB_100);
-                    ps.setLong(2, MemoryUtils.MB_100);
+                    ps.setLong(1, fileLimitProperties.getLightFileMaxWeight());
+                    ps.setLong(2, fileLimitProperties.getLightFileMaxWeight());
                 },
                 (rs, rowNum) -> map(rs)
         );

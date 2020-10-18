@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import ru.gadjini.telegram.smart.bot.commons.exception.DownloadCanceledException;
+import ru.gadjini.telegram.smart.bot.commons.exception.DownloadingException;
+import ru.gadjini.telegram.smart.bot.commons.exception.FloodWaitException;
 import ru.gadjini.telegram.smart.bot.commons.exception.ProcessException;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
 import ru.gadjini.telegram.smart.bot.commons.model.SendFileResult;
@@ -19,6 +21,7 @@ import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.updatemessages
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.AnswerCallbackQuery;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.Progress;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.InlineKeyboardMarkup;
+import ru.gadjini.telegram.smart.bot.commons.property.FileLimitProperties;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
 import ru.gadjini.telegram.smart.bot.commons.service.TempFileService;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
@@ -75,12 +78,14 @@ public class UnzipperJob {
 
     private UnzipMessageBuilder messageBuilder;
 
+    private FileLimitProperties fileLimitProperties;
+
     @Autowired
     public UnzipperJob(UnzipQueueService queueService, Set<UnzipDevice> unzipDevices,
                        LocalisationService localisationService, @Qualifier("messageLimits") MessageService messageService,
-                       @Qualifier("mediaLimits") MediaMessageService mediaMessageService, FileManager fileManager,
+                       @Qualifier("forceMedia") MediaMessageService mediaMessageService, FileManager fileManager,
                        TempFileService fileService, UserService userService, CommandStateService commandStateService,
-                       InlineKeyboardService inlineKeyboardService, UnzipMessageBuilder messageBuilder) {
+                       InlineKeyboardService inlineKeyboardService, UnzipMessageBuilder messageBuilder, FileLimitProperties fileLimitProperties) {
         this.queueService = queueService;
         this.unzipDevices = unzipDevices;
         this.localisationService = localisationService;
@@ -92,6 +97,7 @@ public class UnzipperJob {
         this.commandStateService = commandStateService;
         this.inlineKeyboardService = inlineKeyboardService;
         this.messageBuilder = messageBuilder;
+        this.fileLimitProperties = fileLimitProperties;
     }
 
     @Autowired
@@ -301,6 +307,22 @@ public class UnzipperJob {
         executor.shutdown();
     }
 
+    private void updateProgressMessageAfterFloodWait(long chatId, int progressMessageId, int id) {
+        Locale locale = userService.getLocaleOrDefault(id);
+        String message = localisationService.getMessage(MessagesProperties.MESSAGE_AWAITING_PROCESSING, locale);
+
+        messageService.editMessage(new EditMessageText(chatId, progressMessageId, message)
+                .setNoLogging(true)
+                .setReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(id, locale)));
+    }
+
+    private boolean checkDownloadingException(Throwable e) {
+        int downloadingExceptionIndexOf = ExceptionUtils.indexOfThrowable(e, DownloadingException.class);
+        int floodWaitExceptionIndexOf = ExceptionUtils.indexOfThrowable(e, FloodWaitException.class);
+
+        return downloadingExceptionIndexOf != -1 || floodWaitExceptionIndexOf != -1;
+    }
+
     public class UnzipTask implements SmartExecutorService.Job {
 
         private static final String TAG = "unzip";
@@ -338,7 +360,7 @@ public class UnzipperJob {
 
             try {
                 in = fileService.createTempFile(userId, fileId, TAG, format.getExt());
-                fileManager.downloadFileByFileId(fileId, fileSize, unzipProgress(userId, jobId, messageId), in);
+                fileManager.forceDownloadFileByFileId(fileId, fileSize, unzipProgress(userId, jobId, messageId), in);
                 UnzipState unzipState = initAndGetState(in.getAbsolutePath());
                 if (unzipState == null) {
                     return;
@@ -352,14 +374,19 @@ public class UnzipperJob {
                 commandStateService.setState(userId, UnzipCommandNames.START_COMMAND_NAME, unzipState);
 
                 LOGGER.debug("Finish({}, {}, {})", userId, size, format);
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 if (checker == null || !checker.get() || ExceptionUtils.indexOfThrowable(e, DownloadCanceledException.class) == -1) {
-                    if (in != null) {
-                        in.smartDelete();
+                    if (checkDownloadingException(e)) {
+                        LOGGER.error(e.getMessage());
+                        queueService.setWaiting(jobId);
+                        updateProgressMessageAfterFloodWait(userId, getProgressMessageId(), jobId);
+                    } else {
+                        if (in != null) {
+                            in.smartDelete();
+                        }
+                        commandStateService.deleteState(userId, UnzipCommandNames.START_COMMAND_NAME);
+                        throw e;
                     }
-                    commandStateService.deleteState(userId, UnzipCommandNames.START_COMMAND_NAME);
-
-                    throw e;
                 }
             } finally {
                 if (checker == null || !checker.get()) {
@@ -405,7 +432,7 @@ public class UnzipperJob {
 
         @Override
         public SmartExecutorService.JobWeight getWeight() {
-            return fileSize > MemoryUtils.MB_100 ? SmartExecutorService.JobWeight.HEAVY : SmartExecutorService.JobWeight.LIGHT;
+            return fileSize > fileLimitProperties.getLightFileMaxWeight() ? SmartExecutorService.JobWeight.HEAVY : SmartExecutorService.JobWeight.LIGHT;
         }
 
         @Override
@@ -469,13 +496,14 @@ public class UnzipperJob {
 
         @Override
         public SmartExecutorService.JobWeight getWeight() {
-            return item.getExtractFileSize() > MemoryUtils.MB_100 ? SmartExecutorService.JobWeight.HEAVY : SmartExecutorService.JobWeight.LIGHT;
+            return item.getExtractFileSize() > fileLimitProperties.getLightFileMaxWeight() ? SmartExecutorService.JobWeight.HEAVY : SmartExecutorService.JobWeight.LIGHT;
         }
 
         @Override
         public void execute() throws Exception {
             String size = MemoryUtils.humanReadableByteCount(item.getExtractFileSize());
             LOGGER.debug("Start extract all({}, {})", item.getUserId(), size);
+            boolean success = false;
 
             try {
                 UnzipState unzipState = commandStateService.getState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
@@ -516,16 +544,29 @@ public class UnzipperJob {
                         ++i;
                     }
                     LOGGER.debug("Finish extract all({}, {})", item.getUserId(), size);
+                    success = true;
                 } finally {
                     if (checker == null || !checker.get()) {
                         finishExtracting(item.getUserId(), item.getMessageId(), unzipState);
                     }
                 }
+            } catch (Throwable e) {
+                if (checker == null || !checker.get() || ExceptionUtils.indexOfThrowable(e, DownloadCanceledException.class) == -1) {
+                    if (checkDownloadingException(e)) {
+                        LOGGER.error(e.getMessage());
+                        queueService.setWaiting(item.getId());
+                        updateProgressMessageAfterFloodWait(item.getUserId(), getProgressMessageId(), item.getId());
+                    } else {
+                        throw e;
+                    }
+                }
             } finally {
                 if (checker == null || !checker.get()) {
                     executor.complete(item.getId());
-                    queueService.delete(item.getId());
                     files.forEach(SmartTempFile::smartDelete);
+                    if (success) {
+                        queueService.delete(item.getId());
+                    }
                 }
             }
         }
@@ -612,6 +653,7 @@ public class UnzipperJob {
         public void execute() {
             String size;
 
+            boolean success = false;
             try {
                 UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
                 try {
@@ -631,16 +673,29 @@ public class UnzipperJob {
                         unzipState.getFilesCache().put(id, result.getFileId());
                         commandStateService.setState(userId, UnzipCommandNames.START_COMMAND_NAME, unzipState);
                     }
+                    success = true;
                     LOGGER.debug("Finish({}, {})", userId, size);
                 } finally {
                     if (checker == null || !checker.get()) {
                         finishExtracting(userId, messageId, unzipState);
                     }
                 }
+            } catch (Throwable e) {
+                if (checker == null || !checker.get() || ExceptionUtils.indexOfThrowable(e, DownloadCanceledException.class) == -1) {
+                    if (checkDownloadingException(e)) {
+                        LOGGER.error(e.getMessage());
+                        queueService.setWaiting(jobId);
+                        updateProgressMessageAfterFloodWait(userId, getProgressMessageId(), jobId);
+                    } else {
+                        throw e;
+                    }
+                }
             } finally {
                 if (checker == null || !checker.get()) {
                     executor.complete(jobId);
-                    queueService.delete(jobId);
+                    if (success) {
+                        queueService.delete(jobId);
+                    }
                     if (out != null) {
                         out.smartDelete();
                     }
@@ -681,7 +736,7 @@ public class UnzipperJob {
 
         @Override
         public SmartExecutorService.JobWeight getWeight() {
-            return fileSize > MemoryUtils.MB_100 ? SmartExecutorService.JobWeight.HEAVY : SmartExecutorService.JobWeight.LIGHT;
+            return fileSize > fileLimitProperties.getLightFileMaxWeight() ? SmartExecutorService.JobWeight.HEAVY : SmartExecutorService.JobWeight.LIGHT;
         }
 
         @Override
