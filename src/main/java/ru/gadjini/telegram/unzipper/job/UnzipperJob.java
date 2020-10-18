@@ -23,6 +23,7 @@ import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.Progress;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.InlineKeyboardMarkup;
 import ru.gadjini.telegram.smart.bot.commons.property.FileLimitProperties;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
+import ru.gadjini.telegram.smart.bot.commons.service.ProgressManager;
 import ru.gadjini.telegram.smart.bot.commons.service.TempFileService;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
 import ru.gadjini.telegram.smart.bot.commons.service.command.CommandStateService;
@@ -80,12 +81,14 @@ public class UnzipperJob {
 
     private FileLimitProperties fileLimitProperties;
 
+    private ProgressManager progressManager;
+
     @Autowired
     public UnzipperJob(UnzipQueueService queueService, Set<UnzipDevice> unzipDevices,
                        LocalisationService localisationService, @Qualifier("messageLimits") MessageService messageService,
                        @Qualifier("forceMedia") MediaMessageService mediaMessageService, FileManager fileManager,
                        TempFileService fileService, UserService userService, CommandStateService commandStateService,
-                       InlineKeyboardService inlineKeyboardService, UnzipMessageBuilder messageBuilder, FileLimitProperties fileLimitProperties) {
+                       InlineKeyboardService inlineKeyboardService, UnzipMessageBuilder messageBuilder, FileLimitProperties fileLimitProperties, ProgressManager progressManager) {
         this.queueService = queueService;
         this.unzipDevices = unzipDevices;
         this.localisationService = localisationService;
@@ -98,6 +101,7 @@ public class UnzipperJob {
         this.inlineKeyboardService = inlineKeyboardService;
         this.messageBuilder = messageBuilder;
         this.fileLimitProperties = fileLimitProperties;
+        this.progressManager = progressManager;
     }
 
     @Autowired
@@ -155,35 +159,43 @@ public class UnzipperJob {
         LOGGER.debug("Rejected({}, {})", job.getId(), job.getWeight());
     }
 
-    private Progress extractAllProgress(int count, int current, long chatId, int jobId, int processMessageId) {
-        Locale locale = userService.getLocaleOrDefault((int) chatId);
-        Progress progress = new Progress();
-        progress.setLocale(locale.getLanguage());
-        progress.setChatId(chatId);
-        progress.setProgressMessageId(processMessageId);
-        progress.setProgressMessage(messageBuilder.buildExtractAllProgressMessage(count, current, ExtractFileStep.UPLOADING, Lang.PYTHON, locale));
+    private Progress extractAllProgress(int count, int current, long chatId, int jobId, int processMessageId, long fileSize) {
+        if (progressManager.isShowingUploadingProgress(fileSize)) {
+            Locale locale = userService.getLocaleOrDefault((int) chatId);
+            Progress progress = new Progress();
+            progress.setLocale(locale.getLanguage());
+            progress.setChatId(chatId);
+            progress.setProgressMessageId(processMessageId);
+            progress.setProgressMessage(messageBuilder.buildExtractAllProgressMessage(count, current, ExtractFileStep.UPLOADING, Lang.PYTHON, locale));
 
-        if (current < count) {
-            String completionMessage = messageBuilder.buildExtractAllProgressMessage(count, current + 1, ExtractFileStep.EXTRACTING, Lang.JAVA, locale);
-            String seconds = localisationService.getMessage(MessagesProperties.SECOND_PART, locale);
-            progress.setAfterProgressCompletionMessage(String.format(completionMessage, 50, "10 " + seconds));
-            progress.setAfterProgressCompletionReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(jobId, locale));
+            if (current < count) {
+                String completionMessage = messageBuilder.buildExtractAllProgressMessage(count, current + 1, ExtractFileStep.EXTRACTING, Lang.JAVA, locale);
+                String seconds = localisationService.getMessage(MessagesProperties.SECOND_PART, locale);
+                progress.setAfterProgressCompletionMessage(String.format(completionMessage, 50, "10 " + seconds));
+                progress.setAfterProgressCompletionReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(jobId, locale));
+            }
+            progress.setProgressReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(jobId, locale));
+
+            return progress;
+        } else {
+            return null;
         }
-        progress.setProgressReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(jobId, locale));
-
-        return progress;
     }
 
-    private Progress extractFileProgress(long chatId, int jobId, int processMessageId) {
-        Locale locale = userService.getLocaleOrDefault((int) chatId);
-        Progress progress = new Progress();
-        progress.setLocale(locale.getLanguage());
-        progress.setChatId(chatId);
-        progress.setProgressMessageId(processMessageId);
-        progress.setProgressMessage(messageBuilder.buildExtractFileProgressMessage(ExtractFileStep.UPLOADING, Lang.PYTHON, locale));
-        progress.setProgressReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(jobId, locale));
+    private Progress extractFileProgress(long chatId, int jobId, int processMessageId, long fileSize) {
+        if (progressManager.isShowingUploadingProgress(fileSize)) {
+            Locale locale = userService.getLocaleOrDefault((int) chatId);
+            Progress progress = new Progress();
+            progress.setLocale(locale.getLanguage());
+            progress.setChatId(chatId);
+            progress.setProgressMessageId(processMessageId);
+            progress.setProgressMessage(messageBuilder.buildExtractFileProgressMessage(ExtractFileStep.UPLOADING, Lang.PYTHON, locale));
+            progress.setProgressReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(jobId, locale));
 
-        return progress;
+            return progress;
+        } else {
+            return null;
+        }
     }
 
     private Progress unzipProgress(long chatId, int jobId, int processMessageId) {
@@ -667,7 +679,7 @@ public class UnzipperJob {
 
                     String fileName = FilenameUtils.getName(fileHeader.getPath());
                     SendFileResult result = mediaMessageService.sendDocument(new SendDocument((long) userId, fileName, out.getFile())
-                            .setProgress(extractFileProgress(userId, jobId, messageId))
+                            .setProgress(extractFileProgress(userId, jobId, messageId, fileSize))
                             .setCaption(fileName));
                     if (result != null) {
                         unzipState.getFilesCache().put(id, result.getFileId());

@@ -75,7 +75,7 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
     }
 
     @Override
-    public boolean accept(Message message) {
+    public boolean acceptNonCommandMessage(Message message) {
         return message.hasDocument();
     }
 
