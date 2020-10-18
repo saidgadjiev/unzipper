@@ -541,7 +541,7 @@ public class UnzipperJob {
 
                             String fileName = FilenameUtils.getName(entry.getValue().getPath());
                             SendFileResult result = mediaMessageService.sendDocument(new SendDocument((long) item.getUserId(), fileName, file.getFile())
-                                    .setProgress(extractAllProgress(unzipState.getFiles().size(), i, item.getUserId(), item.getId(), item.getMessageId()))
+                                    .setProgress(extractAllProgress(unzipState.getFiles().size(), i, item.getUserId(), item.getId(), item.getMessageId(), file.length()))
                                     .setCaption(fileName));
                             if (result != null) {
                                 unzipState.getFilesCache().put(entry.getKey(), result.getFileId());
