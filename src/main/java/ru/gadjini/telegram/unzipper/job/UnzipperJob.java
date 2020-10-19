@@ -320,10 +320,10 @@ public class UnzipperJob {
     private void handleDownloadingUploadingException(Throwable e, SmartExecutorService.Job job) {
         LOGGER.error(e.getMessage());
         queueService.setWaiting(job.getId());
-        updateProgressMessageAfterFloodWait(job.getChatId(), job.getProgressMessageId(), job.getId());
+        updateProgressMessageAfterDownloadingUploadingException(job.getChatId(), job.getProgressMessageId(), job.getId());
     }
 
-    private void updateProgressMessageAfterFloodWait(long chatId, int progressMessageId, int id) {
+    private void updateProgressMessageAfterDownloadingUploadingException(long chatId, int progressMessageId, int id) {
         Locale locale = userService.getLocaleOrDefault(id);
         String message = localisationService.getMessage(MessagesProperties.MESSAGE_AWAITING_PROCESSING, locale);
 
