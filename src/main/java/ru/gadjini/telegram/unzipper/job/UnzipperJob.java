@@ -10,8 +10,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import ru.gadjini.telegram.smart.bot.commons.exception.DownloadCanceledException;
-import ru.gadjini.telegram.smart.bot.commons.exception.DownloadingException;
-import ru.gadjini.telegram.smart.bot.commons.exception.FloodWaitException;
 import ru.gadjini.telegram.smart.bot.commons.exception.ProcessException;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
 import ru.gadjini.telegram.smart.bot.commons.model.SendFileResult;
@@ -319,6 +317,12 @@ public class UnzipperJob {
         executor.shutdown();
     }
 
+    private void handleDownloadingUploadingException(Throwable e, SmartExecutorService.Job job) {
+        LOGGER.error(e.getMessage());
+        queueService.setWaiting(job.getId());
+        updateProgressMessageAfterFloodWait(job.getChatId(), job.getProgressMessageId(), job.getId());
+    }
+
     private void updateProgressMessageAfterFloodWait(long chatId, int progressMessageId, int id) {
         Locale locale = userService.getLocaleOrDefault(id);
         String message = localisationService.getMessage(MessagesProperties.MESSAGE_AWAITING_PROCESSING, locale);
@@ -326,13 +330,6 @@ public class UnzipperJob {
         messageService.editMessage(new EditMessageText(chatId, progressMessageId, message)
                 .setNoLogging(true)
                 .setReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(id, locale)));
-    }
-
-    private boolean checkDownloadingException(Throwable e) {
-        int downloadingExceptionIndexOf = ExceptionUtils.indexOfThrowable(e, DownloadingException.class);
-        int floodWaitExceptionIndexOf = ExceptionUtils.indexOfThrowable(e, FloodWaitException.class);
-
-        return downloadingExceptionIndexOf != -1 || floodWaitExceptionIndexOf != -1;
     }
 
     public class UnzipTask implements SmartExecutorService.Job {
@@ -369,7 +366,7 @@ public class UnzipperJob {
             fileWorkObject.start();
             String size = MemoryUtils.humanReadableByteCount(fileSize);
             LOGGER.debug("Start({}, {}, {}, {})", userId, size, format, fileId);
-
+            boolean success = false;
             try {
                 in = fileService.createTempFile(userId, fileId, TAG, format.getExt());
                 fileManager.forceDownloadFileByFileId(fileId, fileSize, unzipProgress(userId, jobId, messageId), in);
@@ -385,13 +382,12 @@ public class UnzipperJob {
                         .setReplyMarkup(inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), 0, filesList.getOffset(), jobId, locale)));
                 commandStateService.setState(userId, UnzipCommandNames.START_COMMAND_NAME, unzipState);
 
+                success = true;
                 LOGGER.debug("Finish({}, {}, {})", userId, size, format);
             } catch (Throwable e) {
                 if (checker == null || !checker.get() || ExceptionUtils.indexOfThrowable(e, DownloadCanceledException.class) == -1) {
-                    if (checkDownloadingException(e)) {
-                        LOGGER.error(e.getMessage());
-                        queueService.setWaiting(jobId);
-                        updateProgressMessageAfterFloodWait(userId, getProgressMessageId(), jobId);
+                    if (FileManager.isSomethingWentWrongWithDownloadingUploading(e)) {
+                        handleDownloadingUploadingException(e, this);
                     } else {
                         if (in != null) {
                             in.smartDelete();
@@ -403,8 +399,10 @@ public class UnzipperJob {
             } finally {
                 if (checker == null || !checker.get()) {
                     executor.complete(jobId);
-                    queueService.delete(jobId);
-                    fileWorkObject.stop();
+                    if (success) {
+                        queueService.delete(jobId);
+                        fileWorkObject.stop();
+                    }
                 }
             }
         }
@@ -555,8 +553,8 @@ public class UnzipperJob {
 
                         ++i;
                     }
-                    LOGGER.debug("Finish extract all({}, {})", item.getUserId(), size);
                     success = true;
+                    LOGGER.debug("Finish extract all({}, {})", item.getUserId(), size);
                 } finally {
                     if (checker == null || !checker.get()) {
                         finishExtracting(item.getUserId(), item.getMessageId(), unzipState);
@@ -564,10 +562,8 @@ public class UnzipperJob {
                 }
             } catch (Throwable e) {
                 if (checker == null || !checker.get() || ExceptionUtils.indexOfThrowable(e, DownloadCanceledException.class) == -1) {
-                    if (checkDownloadingException(e)) {
-                        LOGGER.error(e.getMessage());
-                        queueService.setWaiting(item.getId());
-                        updateProgressMessageAfterFloodWait(item.getUserId(), getProgressMessageId(), item.getId());
+                    if (FileManager.isSomethingWentWrongWithDownloadingUploading(e)) {
+                        handleDownloadingUploadingException(e, this);
                     } else {
                         throw e;
                     }
@@ -694,10 +690,8 @@ public class UnzipperJob {
                 }
             } catch (Throwable e) {
                 if (checker == null || !checker.get() || ExceptionUtils.indexOfThrowable(e, DownloadCanceledException.class) == -1) {
-                    if (checkDownloadingException(e)) {
-                        LOGGER.error(e.getMessage());
-                        queueService.setWaiting(jobId);
-                        updateProgressMessageAfterFloodWait(userId, getProgressMessageId(), jobId);
+                    if (FileManager.isSomethingWentWrongWithDownloadingUploading(e)) {
+                        handleDownloadingUploadingException(e, this);
                     } else {
                         throw e;
                     }
