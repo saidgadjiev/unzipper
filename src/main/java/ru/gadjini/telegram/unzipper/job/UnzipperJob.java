@@ -317,8 +317,7 @@ public class UnzipperJob {
         executor.shutdown();
     }
 
-    private void handleFloodWaitException(Throwable e, SmartExecutorService.Job job) {
-        LOGGER.error(e.getMessage());
+    private void handleNoneCriticalDownloadingException(SmartExecutorService.Job job) {
         queueService.setWaiting(job.getId());
         updateProgressMessageAfterFloodWaitException(job.getChatId(), job.getProgressMessageId(), job.getId());
     }
@@ -386,8 +385,8 @@ public class UnzipperJob {
                 LOGGER.debug("Finish({}, {}, {})", userId, size, format);
             } catch (Throwable e) {
                 if (checker == null || !checker.get() || ExceptionUtils.indexOfThrowable(e, DownloadCanceledException.class) == -1) {
-                    if (FileManager.isFloodWaitException(e)) {
-                        handleFloodWaitException(e, this);
+                    if (FileManager.isNoneCriticalDownloadingException(e)) {
+                        handleNoneCriticalDownloadingException(this);
                     } else {
                         if (in != null) {
                             in.smartDelete();
@@ -562,8 +561,8 @@ public class UnzipperJob {
                 }
             } catch (Throwable e) {
                 if (checker == null || !checker.get() || ExceptionUtils.indexOfThrowable(e, DownloadCanceledException.class) == -1) {
-                    if (FileManager.isFloodWaitException(e)) {
-                        handleFloodWaitException(e, this);
+                    if (FileManager.isNoneCriticalDownloadingException(e)) {
+                        handleNoneCriticalDownloadingException(this);
                     } else {
                         throw e;
                     }
@@ -690,8 +689,8 @@ public class UnzipperJob {
                 }
             } catch (Throwable e) {
                 if (checker == null || !checker.get() || ExceptionUtils.indexOfThrowable(e, DownloadCanceledException.class) == -1) {
-                    if (FileManager.isFloodWaitException(e)) {
-                        handleFloodWaitException(e, this);
+                    if (FileManager.isNoneCriticalDownloadingException(e)) {
+                        handleNoneCriticalDownloadingException(this);
                     } else {
                         throw e;
                     }
