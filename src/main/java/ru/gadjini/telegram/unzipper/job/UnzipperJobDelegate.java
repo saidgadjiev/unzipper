@@ -14,7 +14,6 @@ import ru.gadjini.telegram.smart.bot.commons.model.SendFileResult;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.SendDocument;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.SendMessage;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.updatemessages.EditMessageText;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.AnswerCallbackQuery;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.Progress;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.InlineKeyboardMarkup;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
@@ -22,13 +21,11 @@ import ru.gadjini.telegram.smart.bot.commons.service.ProgressManager;
 import ru.gadjini.telegram.smart.bot.commons.service.TempFileService;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
 import ru.gadjini.telegram.smart.bot.commons.service.command.CommandStateService;
-import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
 import ru.gadjini.telegram.smart.bot.commons.service.file.FileManager;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MediaMessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.queue.QueueJobDelegate;
-import ru.gadjini.telegram.smart.bot.commons.service.queue.QueueService;
 import ru.gadjini.telegram.smart.bot.commons.utils.MemoryUtils;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
@@ -46,8 +43,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class UnzipperJobDelegate implements QueueJobDelegate {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(UnzipperJobDelegate.class);
-
-    private SmartExecutorService executor;
 
     private Set<UnzipDevice> unzipDevices;
 
@@ -71,15 +66,13 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
 
     private ProgressManager progressManager;
 
-    private QueueService queueService;
-
     @Autowired
     public UnzipperJobDelegate(Set<UnzipDevice> unzipDevices,
                                LocalisationService localisationService, @Qualifier("messageLimits") MessageService messageService,
                                @Qualifier("forceMedia") MediaMessageService mediaMessageService, FileManager fileManager,
                                TempFileService fileService, UserService userService, CommandStateService commandStateService,
                                InlineKeyboardService inlineKeyboardService, UnzipMessageBuilder messageBuilder,
-                               ProgressManager progressManager, QueueService queueService) {
+                               ProgressManager progressManager) {
         this.unzipDevices = unzipDevices;
         this.localisationService = localisationService;
         this.messageService = messageService;
@@ -91,12 +84,6 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
         this.inlineKeyboardService = inlineKeyboardService;
         this.messageBuilder = messageBuilder;
         this.progressManager = progressManager;
-        this.queueService = queueService;
-    }
-
-    @Autowired
-    public void setExecutor(@Qualifier("queueTaskExecutor") SmartExecutorService executor) {
-        this.executor = executor;
     }
 
     @Override
@@ -204,58 +191,22 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
         throw new IllegalArgumentException("Candidate not found for " + format + ". Wtf?");
     }
 
-    public void cancelUnzip(long chatId, int messageId, String queryId, int jobId) {
-        UnzipState unzipState = commandStateService.getState(chatId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
-        if (unzipState == null || unzipState.getUnzipJobId() != jobId) {
-            messageService.sendAnswerCallbackQuery(new AnswerCallbackQuery(
-                    queryId,
-                    localisationService.getMessage(MessagesProperties.MESSAGE_QUERY_ITEM_NOT_FOUND, userService.getLocaleOrDefault((int) chatId)),
-                    true
-            ));
-        } else {
-            messageService.sendAnswerCallbackQuery(new AnswerCallbackQuery(
-                    queryId,
-                    localisationService.getMessage(MessagesProperties.MESSAGE_QUERY_CANCELED, userService.getLocaleOrDefault((int) chatId))
-            ));
-            if (!executor.cancelAndComplete(jobId, true)) {
-                UnzipQueueItem unzipQueueItem = (UnzipQueueItem) queueService.deleteAndGetById(jobId);
-                if (unzipQueueItem != null) {
-                    fileManager.fileWorkObject(chatId, unzipQueueItem.getFile().getSize()).stop();
-                }
+    @Override
+    public void afterTaskCanceled(QueueItem queueItem) {
+        if (((UnzipQueueItem) queueItem).getItemType() == UnzipQueueItem.ItemType.UNZIP) {
+            commandStateService.deleteState(queueItem.getUserId(), UnzipCommandNames.START_COMMAND_NAME);
 
-                commandStateService.deleteState(chatId, UnzipCommandNames.START_COMMAND_NAME);
-                if (StringUtils.isNotBlank(unzipState.getArchivePath())) {
-                    new SmartTempFile(new File(unzipState.getArchivePath())).smartDelete();
-                }
+            UnzipState unzipState = commandStateService.getState(queueItem.getUserId(), UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
+            if (unzipState != null && StringUtils.isNotBlank(unzipState.getArchivePath())) {
+                new SmartTempFile(new File(unzipState.getArchivePath())).smartDelete();
             }
-        }
-        messageService.editMessage(new EditMessageText(
-                chatId, messageId, localisationService.getMessage(MessagesProperties.MESSAGE_QUERY_CANCELED, userService.getLocaleOrDefault((int) chatId))));
-    }
-
-    public void cancelExtractFile(long chatId, int messageId, String queryId, int jobId) {
-        if (!queueService.exists(jobId)) {
-            messageService.sendAnswerCallbackQuery(new AnswerCallbackQuery(
-                    queryId,
-                    localisationService.getMessage(MessagesProperties.MESSAGE_QUERY_ITEM_NOT_FOUND, userService.getLocaleOrDefault((int) chatId)),
-                    true
-            ));
-            messageService.editMessage(new EditMessageText(
-                    chatId, messageId, localisationService.getMessage(MessagesProperties.MESSAGE_QUERY_CANCELED, userService.getLocaleOrDefault((int) chatId))));
         } else {
-            messageService.sendAnswerCallbackQuery(new AnswerCallbackQuery(
-                    queryId,
-                    localisationService.getMessage(MessagesProperties.MESSAGE_QUERY_CANCELED, userService.getLocaleOrDefault((int) chatId))
-            ));
-            if (!executor.cancelAndComplete(jobId, true)) {
-                queueService.deleteById(jobId);
-            }
-            UnzipState unzipState = commandStateService.getState(chatId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
+            UnzipState unzipState = commandStateService.getState(queueItem.getUserId(), UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
             if (unzipState != null) {
-                Locale locale = userService.getLocaleOrDefault((int) chatId);
+                Locale locale = userService.getLocaleOrDefault(queueItem.getUserId());
                 UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, unzipState.getOffset(), locale);
                 InlineKeyboardMarkup filesListKeyboard = inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), unzipState.getPrevLimit(), filesList.getOffset(), unzipState.getUnzipJobId(), locale);
-                messageService.editMessage(new EditMessageText(chatId, messageId, filesList.getMessage())
+                messageService.editMessage(new EditMessageText(queueItem.getUserId(), ((UnzipQueueItem) queueItem).getMessageId(), filesList.getMessage())
                         .setReplyMarkup(filesListKeyboard));
             }
         }
