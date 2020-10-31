@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
+import ru.gadjini.telegram.smart.bot.commons.dao.QueueDaoDelegate;
 import ru.gadjini.telegram.smart.bot.commons.domain.TgFile;
 import ru.gadjini.telegram.smart.bot.commons.property.FileLimitProperties;
 import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
@@ -17,7 +18,7 @@ import java.sql.Statement;
 import java.util.List;
 
 @Repository
-public class UnzipQueueDao {
+public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
 
     private JdbcTemplate jdbcTemplate;
 
@@ -85,17 +86,7 @@ public class UnzipQueueDao {
         return ((Number) keyHolder.getKeys().get(UnzipQueueItem.ID)).intValue();
     }
 
-    public void setWaiting(int id) {
-        jdbcTemplate.update("UPDATE unzip_queue SET status = 0 WHERE id = ?",
-                ps -> {
-                    ps.setInt(1, id);
-                });
-    }
-
-    public void resetProcessing() {
-        jdbcTemplate.update("UPDATE unzip_queue SET status = 0 WHERE status = 1");
-    }
-
+    @Override
     public List<UnzipQueueItem> poll(SmartExecutorService.JobWeight weight, int limit) {
         String sign = weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">";
 
@@ -116,8 +107,33 @@ public class UnzipQueueDao {
         );
     }
 
-    public void delete(int id) {
-        jdbcTemplate.update("DELETE FROM unzip_queue WHERE id = ?", ps -> ps.setInt(1, id));
+    @Override
+    public UnzipQueueItem getById(int id) {
+        return jdbcTemplate.query("SELECT *, (file).* FROM unzip_queue where id = ?",
+                ps -> ps.setInt(1, id),
+                rs -> rs.next() ? map(rs) : null
+        );
+    }
+
+    @Override
+    public List<UnzipQueueItem> deleteAndGetProcessingOrWaitingByUserId(int userId) {
+        return jdbcTemplate.query("WITH r AS (DELETE FROM unzip_queue WHERE user_id = ? RETURNING *) SELECT *, (file).* FROM r",
+                ps -> ps.setInt(1, userId),
+                (rs, num) -> map(rs)
+        );
+    }
+
+    @Override
+    public UnzipQueueItem deleteAndGetById(int id) {
+        return jdbcTemplate.query("WITH del AS(DELETE FROM unzip_queue WHERE id = ? RETURNING *) SELECT *, (file).* FROM del",
+                ps -> ps.setInt(1, id),
+                rs -> rs.next() ? map(rs) : null
+        );
+    }
+
+    @Override
+    public String getQueueName() {
+        return UnzipQueueItem.NAME;
     }
 
     public void setMessageId(int id, int messageId) {
@@ -125,31 +141,6 @@ public class UnzipQueueDao {
             ps.setInt(1, messageId);
             ps.setInt(2, id);
         });
-    }
-
-    public UnzipQueueItem deleteWithReturning(int id) {
-        return jdbcTemplate.query("WITH del AS(DELETE FROM unzip_queue WHERE id = ? RETURNING *) SELECT *, (file).* FROM del",
-                ps -> ps.setInt(1, id),
-                rs -> rs.next() ? map(rs) : null
-        );
-    }
-
-    public UnzipQueueItem deleteByUserId(int userId) {
-        return jdbcTemplate.query("WITH r AS (DELETE FROM unzip_queue WHERE user_id = ? RETURNING *) SELECT *, (file).* FROM r",
-                ps -> ps.setInt(1, userId),
-                rs -> rs.next() ? map(rs) : null
-        );
-    }
-
-    public UnzipQueueItem getByUserId(int userId) {
-        return jdbcTemplate.query("SELECT *, (file).* FROM unzip_queue WHERE user_id = ?",
-                ps -> ps.setInt(1, userId),
-                rs -> rs.next() ? map(rs) : null
-        );
-    }
-
-    public Boolean exists(int id) {
-        return jdbcTemplate.query("SELECT true FROM unzip_queue WHERE id = ?", ps -> ps.setInt(1, id), ResultSet::next);
     }
 
     private UnzipQueueItem map(ResultSet resultSet) throws SQLException {

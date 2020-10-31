@@ -1,21 +1,16 @@
 package ru.gadjini.telegram.unzipper.domain;
 
+import ru.gadjini.telegram.smart.bot.commons.domain.QueueItem;
 import ru.gadjini.telegram.smart.bot.commons.domain.TgFile;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 
-public class UnzipQueueItem {
+public class UnzipQueueItem extends QueueItem {
 
     public static final String NAME = "unzip_queue";
-
-    public static final String ID = "id";
-
-    public static final String USER_ID = "user_id";
 
     public static final String FILE = "file";
 
     public static final String TYPE = "type";
-
-    public static final String STATUS = "status";
 
     public static final String ITEM_TYPE = "item_type";
 
@@ -25,15 +20,9 @@ public class UnzipQueueItem {
 
     public static final String MESSAGE_ID = "message_id";
 
-    private int id;
-
-    private int userId;
-
     private TgFile file;
 
     private Format type;
-
-    private Status status;
 
     private ItemType itemType;
 
@@ -42,22 +31,6 @@ public class UnzipQueueItem {
     private int extractFileId;
 
     private long extractFileSize;
-
-    public int getId() {
-        return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
-    }
-
-    public int getUserId() {
-        return userId;
-    }
-
-    public void setUserId(int userId) {
-        this.userId = userId;
-    }
 
     public TgFile getFile() {
         return file;
@@ -73,14 +46,6 @@ public class UnzipQueueItem {
 
     public void setType(Format type) {
         this.type = type;
-    }
-
-    public Status getStatus() {
-        return status;
-    }
-
-    public void setStatus(Status status) {
-        this.status = status;
     }
 
     public ItemType getItemType() {
@@ -115,21 +80,9 @@ public class UnzipQueueItem {
         this.extractFileSize = extractFileSize;
     }
 
-    public enum Status {
-
-        WAITING(0),
-
-        PROCESSING(1);
-
-        private final int code;
-
-        Status(int code) {
-            this.code = code;
-        }
-
-        public int getCode() {
-            return code;
-        }
+    @Override
+    public long getSize() {
+        return itemType == ItemType.EXTRACT_ALL ? extractFileSize : file.getSize();
     }
 
     public enum ItemType {

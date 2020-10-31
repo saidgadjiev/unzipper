@@ -3,11 +3,8 @@ package ru.gadjini.telegram.unzipper.service.queue;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
-import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
 import ru.gadjini.telegram.unzipper.dao.UnzipQueueDao;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
-
-import java.util.List;
 
 @Service
 public class UnzipQueueService {
@@ -17,10 +14,6 @@ public class UnzipQueueService {
     @Autowired
     public UnzipQueueService(UnzipQueueDao unzipQueueDao) {
         this.unzipQueueDao = unzipQueueDao;
-    }
-
-    public void resetProcessing() {
-        unzipQueueDao.resetProcessing();
     }
 
     public UnzipQueueItem createUnzipItem(int userId, MessageMedia any2AnyFile) {
@@ -66,43 +59,5 @@ public class UnzipQueueService {
         item.setId(jobId);
 
         return item;
-    }
-
-    public void setWaiting(int id) {
-        unzipQueueDao.setWaiting(id);
-    }
-
-    public UnzipQueueItem poll(SmartExecutorService.JobWeight weight) {
-        List<UnzipQueueItem> poll = unzipQueueDao.poll(weight, 1);
-
-        return poll.isEmpty() ? null : poll.iterator().next();
-    }
-
-    public List<UnzipQueueItem> poll(SmartExecutorService.JobWeight weight, int limit) {
-        return unzipQueueDao.poll(weight, limit);
-    }
-
-    public void delete(int id) {
-        unzipQueueDao.delete(id);
-    }
-
-    public UnzipQueueItem deleteWithReturning(int id) {
-        return unzipQueueDao.deleteWithReturning(id);
-    }
-
-    public void setMessageId(int id, int messageId) {
-        unzipQueueDao.setMessageId(id, messageId);
-    }
-
-    public UnzipQueueItem deleteByUserId(int userId) {
-        return unzipQueueDao.deleteByUserId(userId);
-    }
-
-    public UnzipQueueItem getByUserId(int userId) {
-        return unzipQueueDao.getByUserId(userId);
-    }
-
-    public boolean exists(int jobId) {
-        return unzipQueueDao.exists(jobId);
     }
 }

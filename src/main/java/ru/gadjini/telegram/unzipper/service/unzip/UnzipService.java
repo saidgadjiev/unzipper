@@ -22,6 +22,7 @@ import ru.gadjini.telegram.smart.bot.commons.service.file.FileManager;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MediaMessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
+import ru.gadjini.telegram.smart.bot.commons.service.queue.QueueService;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
@@ -50,7 +51,9 @@ public class UnzipService {
 
     private FileManager fileManager;
 
-    private UnzipQueueService queueService;
+    private UnzipQueueService unzipQueueService;
+
+    private QueueService queueService;
 
     private UserService userService;
 
@@ -66,7 +69,7 @@ public class UnzipService {
     public UnzipService(Set<UnzipDevice> unzipDevices, LocalisationService localisationService,
                         @Qualifier("messageLimits") MessageService messageService,
                         @Qualifier("mediaLimits") MediaMessageService mediaMessageService, FileManager fileManager,
-                        UnzipQueueService queueService, UserService userService,
+                        UnzipQueueService unzipQueueService, QueueService queueService, UserService userService,
                         CommandStateService commandStateService, InlineKeyboardService inlineKeyboardService,
                         UnzipMessageBuilder messageBuilder, ProgressManager progressManager) {
         this.unzipDevices = unzipDevices;
@@ -74,6 +77,7 @@ public class UnzipService {
         this.messageService = messageService;
         this.mediaMessageService = mediaMessageService;
         this.fileManager = fileManager;
+        this.unzipQueueService = unzipQueueService;
         this.queueService = queueService;
         this.userService = userService;
         this.commandStateService = commandStateService;
@@ -99,7 +103,7 @@ public class UnzipService {
             ));
             messageService.removeInlineKeyboard(userId, messageId);
         } else {
-            UnzipQueueItem item = queueService.createExtractAllItem(userId, messageId,
+            UnzipQueueItem item = unzipQueueService.createExtractAllItem(userId, messageId,
                     unzipState.getFiles().values().stream().map(ZipFileHeader::getSize).mapToLong(i -> i).sum());
             sendStartExtractingAllMessage(userId, messageId, item.getId());
         }
@@ -132,7 +136,7 @@ public class UnzipService {
                 String fileName = FilenameUtils.getName(unzipState.getFiles().get(extractFileId).getPath());
                 mediaMessageService.sendFile(userId, unzipState.getFilesCache().get(extractFileId), fileName);
             } else {
-                UnzipQueueItem item = queueService.createExtractFileItem(userId, messageId,
+                UnzipQueueItem item = unzipQueueService.createExtractFileItem(userId, messageId,
                         extractFileId, unzipState.getFiles().get(extractFileId).getSize());
                 sendStartExtractingFileMessage(userId, messageId, unzipState.getFiles().get(extractFileId).getSize(), item.getId());
             }
@@ -166,14 +170,14 @@ public class UnzipService {
 
     public void unzip(int userId, int replyToMessageId, MessageMedia file, Locale locale) {
         checkCandidate(file.getFormat(), locale);
-        UnzipQueueItem queueItem = queueService.createUnzipItem(userId, file);
+        UnzipQueueItem queueItem = unzipQueueService.createUnzipItem(userId, file);
         UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
         unzipState.setUnzipJobId(queueItem.getId());
         commandStateService.setState(userId, UnzipCommandNames.START_COMMAND_NAME, unzipState);
 
         sendStartUnzippingMessage(userId, queueItem.getId(), file.getFileSize(), locale, message -> {
             queueItem.setMessageId(message.getMessageId());
-            queueService.setMessageId(queueItem.getId(), message.getMessageId());
+            queueService.setProgressMessageId(queueItem.getId(), message.getMessageId());
             fileManager.setInputFilePending(userId, replyToMessageId, file.getFileId(), file.getFileSize(), TAG);
         });
     }

@@ -6,16 +6,16 @@ import ru.gadjini.telegram.smart.bot.commons.command.api.CallbackBotCommand;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.CallbackQuery;
 import ru.gadjini.telegram.smart.bot.commons.service.request.RequestParams;
 import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
-import ru.gadjini.telegram.unzipper.job.UnzipperJob;
+import ru.gadjini.telegram.unzipper.job.UnzipperJobDelegate;
 import ru.gadjini.telegram.unzipper.request.Arg;
 
 @Component
 public class CancelExtractFileQueryCommand implements CallbackBotCommand {
 
-    private UnzipperJob unzipperJob;
+    private UnzipperJobDelegate unzipperJob;
 
     @Autowired
-    public CancelExtractFileQueryCommand(UnzipperJob unzipperJob) {
+    public CancelExtractFileQueryCommand(UnzipperJobDelegate unzipperJob) {
         this.unzipperJob = unzipperJob;
     }
 
