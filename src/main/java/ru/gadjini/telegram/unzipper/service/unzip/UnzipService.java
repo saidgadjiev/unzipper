@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.smart.bot.commons.exception.botapi.TelegramApiException;
 import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
+import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.HtmlMessage;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.SendMessage;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.updatemessages.EditMessageText;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.AnswerCallbackQuery;
@@ -182,7 +183,7 @@ public class UnzipService {
 
     private void sendStartUnzippingMessage(UnzipQueueItem queueItem, Locale locale, Consumer<Message> callback) {
         String message = messageBuilder.buildUnzipProgressMessage(queueItem, UnzipStep.WAITING, Lang.JAVA, locale);
-        messageService.sendMessage(new SendMessage((long) queueItem.getUserId(), message)
+        messageService.sendMessage(new HtmlMessage((long) queueItem.getUserId(), message)
                 .setReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(queueItem.getId(), locale)), callback);
     }
 

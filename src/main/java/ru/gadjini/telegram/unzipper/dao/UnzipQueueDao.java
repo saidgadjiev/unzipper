@@ -94,7 +94,7 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
                 "SELECT COALESCE(queue_position, 1) as queue_position\n" +
                         "FROM (SELECT id, row_number() over (ORDER BY created_at) AS queue_position\n" +
                         "      FROM unzip_queue \n" +
-                        "      WHERE status = 0 AND file.size" + (weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">") + " ?\n" +
+                        "      WHERE status = 0 AND CASE WHEN item_type IN (1, 2) THEN extract_file_size ELSE (file).size END " + (weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">") + " ?\n" +
                         ") as file_q\n" +
                         "WHERE id = ?",
                 ps -> {
@@ -135,7 +135,7 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
 
     public SmartExecutorService.JobWeight getWeight(int id) {
         Long size = jdbcTemplate.query(
-                "SELECT (file).size FROM unzip_queue WHERE id = ?",
+                "SELECT CASE WHEN item_type IN (1, 2) THEN extract_file_size ELSE (file).size END FROM unzip_queue WHERE id = ?",
                 ps -> ps.setInt(1, id),
                 rs -> rs.next() ? rs.getLong("size") : null
         );
@@ -155,7 +155,7 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
                         "FROM unzip_queue f\n" +
                         "         LEFT JOIN (SELECT id, row_number() over (ORDER BY created_at) as queue_position\n" +
                         "                     FROM unzip_queue\n" +
-                        "      WHERE status = 0 AND file.size" + (weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">") + " ?\n" +
+                        "      WHERE status = 0 AND CASE WHEN item_type IN (1, 2) THEN extract_file_size ELSE (file).size END " + (weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">") + " ?\n" +
                         ") queue_place ON f.id = queue_place.id\n" +
                         "WHERE f.id = ?\n",
                 ps -> {
@@ -210,6 +210,7 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
             TgFile tgFile = new TgFile();
             tgFile.setFileId(resultSet.getString(TgFile.FILE_ID));
             tgFile.setSize(resultSet.getInt(TgFile.SIZE));
+            tgFile.setFormat(Format.valueOf(resultSet.getString(TgFile.FORMAT)));
             item.setFile(tgFile);
 
             item.setType(Format.valueOf(resultSet.getString(UnzipQueueItem.TYPE)));

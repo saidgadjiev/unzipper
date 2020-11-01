@@ -4,6 +4,8 @@ import ru.gadjini.telegram.smart.bot.commons.domain.QueueItem;
 import ru.gadjini.telegram.smart.bot.commons.domain.TgFile;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 
+import java.util.Set;
+
 public class UnzipQueueItem extends QueueItem {
 
     public static final String NAME = "unzip_queue";
@@ -70,7 +72,7 @@ public class UnzipQueueItem extends QueueItem {
 
     @Override
     public long getSize() {
-        return itemType == ItemType.EXTRACT_ALL ? extractFileSize : file.getSize();
+        return Set.of(ItemType.EXTRACT_ALL, ItemType.EXTRACT_FILE).contains(itemType) ? extractFileSize : file.getSize();
     }
 
     public enum ItemType {

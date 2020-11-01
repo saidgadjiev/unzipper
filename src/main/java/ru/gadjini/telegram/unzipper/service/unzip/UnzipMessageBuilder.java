@@ -33,15 +33,16 @@ public class UnzipMessageBuilder {
     public String buildExtractAllProgressMessage(int count, int current, ExtractFileStep extractFileStep, long fileSize, Lang lang, Locale locale) {
         String msg = localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_ALL, new Object[]{current - 1, count}, locale);
 
-        return msg + "\n" + buildExtractFileProgressMessage(extractFileStep, fileSize, lang, locale);
+        return msg + "\n" + buildExtractFileProgressMessage(extractFileStep, fileSize, lang, locale) + "\n\n" +
+                localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale);
     }
 
     public String buildExtractFileProgressMessage(UnzipQueueItem queueItem, ExtractFileStep extractFileStep, Lang lang, Locale locale) {
         StringBuilder message = new StringBuilder();
 
         message.append(localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queueItem.getQueuePosition()}, locale)).append("\n\n");
-
-        message.append(buildExtractFileProgressMessage(extractFileStep, queueItem.getSize(), lang, locale));
+        message.append(buildExtractFileProgressMessage(extractFileStep, queueItem.getSize(), lang, locale)).append("\n\n");
+        message.append(localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale));
 
         return message.toString();
     }
@@ -73,8 +74,8 @@ public class UnzipMessageBuilder {
         StringBuilder message = new StringBuilder();
 
         message.append(localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queueItem.getQueuePosition()}, locale)).append("\n\n");
-
-        message.append(buildUnzipProgressMessage(unzipStep, queueItem.getSize(), lang, locale));
+        message.append(buildUnzipProgressMessage(unzipStep, queueItem.getSize(), lang, locale)).append("\n\n");
+        message.append(localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale));
 
         return message.toString();
     }

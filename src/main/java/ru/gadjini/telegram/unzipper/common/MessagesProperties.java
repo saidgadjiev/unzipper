@@ -74,4 +74,7 @@ public class MessagesProperties {
     public static final String MESSAGE_BOT_IS_SLEEPING = "message.bot.is.sleeping";
 
     public static final String MESSAGE_FILE_QUEUED = "message.file.queued";
+
+    public static final String MESSAGE_DONT_SEND_NEW_REQUEST = "message.dont.send.new.request";
+
 }

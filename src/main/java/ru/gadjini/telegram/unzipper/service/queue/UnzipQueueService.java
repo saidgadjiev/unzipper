@@ -52,7 +52,7 @@ public class UnzipQueueService {
         int jobId = unzipQueueDao.create(item);
         item.setId(jobId);
         item.setQueuePosition(
-                unzipQueueDao.getQueuePosition(jobId, item.getFile().getSize() > fileLimitProperties.getLightFileMaxWeight() ? SmartExecutorService.JobWeight.HEAVY : SmartExecutorService.JobWeight.LIGHT)
+                unzipQueueDao.getQueuePosition(jobId, extractFileSize > fileLimitProperties.getLightFileMaxWeight() ? SmartExecutorService.JobWeight.HEAVY : SmartExecutorService.JobWeight.LIGHT)
         );
 
         return item;
@@ -70,7 +70,7 @@ public class UnzipQueueService {
         item.setId(jobId);
 
         item.setQueuePosition(
-                unzipQueueDao.getQueuePosition(jobId, item.getFile().getSize() > fileLimitProperties.getLightFileMaxWeight() ? SmartExecutorService.JobWeight.HEAVY : SmartExecutorService.JobWeight.LIGHT)
+                unzipQueueDao.getQueuePosition(jobId, size > fileLimitProperties.getLightFileMaxWeight() ? SmartExecutorService.JobWeight.HEAVY : SmartExecutorService.JobWeight.LIGHT)
         );
 
         return item;
