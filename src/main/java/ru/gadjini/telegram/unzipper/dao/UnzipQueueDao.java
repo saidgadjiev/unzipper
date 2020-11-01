@@ -5,10 +5,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 import ru.gadjini.telegram.smart.bot.commons.dao.QueueDaoDelegate;
+import ru.gadjini.telegram.smart.bot.commons.domain.QueueItem;
 import ru.gadjini.telegram.smart.bot.commons.domain.TgFile;
 import ru.gadjini.telegram.smart.bot.commons.property.FileLimitProperties;
 import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
+import ru.gadjini.telegram.smart.bot.commons.utils.JdbcUtils;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 
 import java.sql.PreparedStatement;
@@ -16,6 +18,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Set;
 
 @Repository
 public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
@@ -51,12 +54,12 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
         } else if (unzipQueueItem.getItemType() == UnzipQueueItem.ItemType.EXTRACT_FILE) {
             jdbcTemplate.update(
                     con -> {
-                        PreparedStatement ps = con.prepareStatement("INSERT INTO unzip_queue(user_id, extract_file_id, message_id, status, item_type, extract_file_size) " +
+                        PreparedStatement ps = con.prepareStatement("INSERT INTO unzip_queue(user_id, extract_file_id, progress_message_id, status, item_type, extract_file_size) " +
                                 "VALUES (?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
 
                         ps.setInt(1, unzipQueueItem.getUserId());
                         ps.setObject(2, unzipQueueItem.getExtractFileId());
-                        ps.setInt(3, unzipQueueItem.getMessageId());
+                        ps.setInt(3, unzipQueueItem.getProgressMessageId());
                         ps.setInt(4, unzipQueueItem.getStatus().getCode());
                         ps.setInt(5, unzipQueueItem.getItemType().getCode());
                         ps.setLong(6, unzipQueueItem.getExtractFileSize());
@@ -68,11 +71,11 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
         } else {
             jdbcTemplate.update(
                     con -> {
-                        PreparedStatement ps = con.prepareStatement("INSERT INTO unzip_queue(user_id, message_id, status, item_type, extract_file_size) " +
+                        PreparedStatement ps = con.prepareStatement("INSERT INTO unzip_queue(user_id, progress_message_id, status, item_type, extract_file_size) " +
                                 "VALUES (?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
 
                         ps.setInt(1, unzipQueueItem.getUserId());
-                        ps.setInt(2, unzipQueueItem.getMessageId());
+                        ps.setInt(2, unzipQueueItem.getProgressMessageId());
                         ps.setInt(3, unzipQueueItem.getStatus().getCode());
                         ps.setInt(4, unzipQueueItem.getItemType().getCode());
                         ps.setLong(5, unzipQueueItem.getExtractFileSize());
@@ -86,18 +89,41 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
         return ((Number) keyHolder.getKeys().get(UnzipQueueItem.ID)).intValue();
     }
 
+    public Integer getQueuePosition(int id, SmartExecutorService.JobWeight weight) {
+        return jdbcTemplate.query(
+                "SELECT COALESCE(queue_position, 1) as queue_position\n" +
+                        "FROM (SELECT id, row_number() over (ORDER BY created_at) AS queue_position\n" +
+                        "      FROM unzip_queue \n" +
+                        "      WHERE status = 0 AND file.size" + (weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">") + " ?\n" +
+                        ") as file_q\n" +
+                        "WHERE id = ?",
+                ps -> {
+                    ps.setLong(1, fileLimitProperties.getLightFileMaxWeight());
+                    ps.setInt(2, id);
+                },
+                rs -> {
+                    if (rs.next()) {
+                        return rs.getInt(QueueItem.QUEUE_POSITION);
+                    }
+
+                    return 1;
+                }
+        );
+    }
+
     @Override
     public List<UnzipQueueItem> poll(SmartExecutorService.JobWeight weight, int limit) {
         String sign = weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">";
 
         return jdbcTemplate.query(
                 "WITH r AS (\n" +
-                        "    UPDATE unzip_queue SET status = 1 WHERE id IN (SELECT id FROM unzip_queue " +
+                        "    UPDATE unzip_queue SET status = 1, last_run_at = now(), started_at = COALESCE(started_at, now())" +
+                        " WHERE id IN (SELECT id FROM unzip_queue " +
                         "WHERE status = 0 AND CASE WHEN item_type = 0 THEN " +
                         "(file).size " + sign + " ? ELSE " +
                         "extract_file_size " + sign + " ? END ORDER BY created_at LIMIT " + limit + ") RETURNING *\n" +
                         ")\n" +
-                        "SELECT *, (file).*\n" +
+                        "SELECT *, (file).*, 1 as queue_position\n" +
                         "FROM r",
                 ps -> {
                     ps.setLong(1, fileLimitProperties.getLightFileMaxWeight());
@@ -107,11 +133,42 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
         );
     }
 
+    public SmartExecutorService.JobWeight getWeight(int id) {
+        Long size = jdbcTemplate.query(
+                "SELECT (file).size FROM unzip_queue WHERE id = ?",
+                ps -> ps.setInt(1, id),
+                rs -> rs.next() ? rs.getLong("size") : null
+        );
+
+        return size == null ? null : size > fileLimitProperties.getLightFileMaxWeight() ? SmartExecutorService.JobWeight.HEAVY : SmartExecutorService.JobWeight.LIGHT;
+    }
+
     @Override
     public UnzipQueueItem getById(int id) {
-        return jdbcTemplate.query("SELECT *, (file).* FROM unzip_queue where id = ?",
-                ps -> ps.setInt(1, id),
-                rs -> rs.next() ? map(rs) : null
+        SmartExecutorService.JobWeight weight = getWeight(id);
+
+        if (weight == null) {
+            return null;
+        }
+        return jdbcTemplate.query(
+                "SELECT f.*, (f.file).*, COALESCE(queue_place.queue_position, 1) as queue_position\n" +
+                        "FROM unzip_queue f\n" +
+                        "         LEFT JOIN (SELECT id, row_number() over (ORDER BY created_at) as queue_position\n" +
+                        "                     FROM unzip_queue\n" +
+                        "      WHERE status = 0 AND file.size" + (weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">") + " ?\n" +
+                        ") queue_place ON f.id = queue_place.id\n" +
+                        "WHERE f.id = ?\n",
+                ps -> {
+                    ps.setLong(1, fileLimitProperties.getLightFileMaxWeight());
+                    ps.setInt(2, id);
+                },
+                rs -> {
+                    if (rs.next()) {
+                        return map(rs);
+                    }
+
+                    return null;
+                }
         );
     }
 
@@ -136,20 +193,18 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
         return UnzipQueueItem.NAME;
     }
 
-    public void setMessageId(int id, int messageId) {
-        jdbcTemplate.update("UPDATE unzip_queue SET message_id = ? WHERE id = ?", ps -> {
-            ps.setInt(1, messageId);
-            ps.setInt(2, id);
-        });
-    }
-
     private UnzipQueueItem map(ResultSet resultSet) throws SQLException {
+        Set<String> columns = JdbcUtils.getColumnNames(resultSet.getMetaData());
+
         UnzipQueueItem item = new UnzipQueueItem();
         item.setId(resultSet.getInt(UnzipQueueItem.ID));
         item.setUserId(resultSet.getInt(UnzipQueueItem.USER_ID));
-        item.setMessageId(resultSet.getInt(UnzipQueueItem.MESSAGE_ID));
+        item.setProgressMessageId(resultSet.getInt(UnzipQueueItem.PROGRESS_MESSAGE_ID));
         UnzipQueueItem.ItemType itemType = UnzipQueueItem.ItemType.fromCode(resultSet.getInt(UnzipQueueItem.ITEM_TYPE));
         item.setItemType(itemType);
+        if (columns.contains(QueueItem.QUEUE_POSITION)) {
+            item.setQueuePosition(resultSet.getInt(QueueItem.QUEUE_POSITION));
+        }
 
         if (itemType == UnzipQueueItem.ItemType.UNZIP) {
             TgFile tgFile = new TgFile();

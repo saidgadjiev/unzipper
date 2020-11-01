@@ -3,9 +3,11 @@ package ru.gadjini.telegram.unzipper.service.unzip;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
+import ru.gadjini.telegram.smart.bot.commons.service.ProgressManager;
 import ru.gadjini.telegram.smart.bot.commons.service.message.TgLimitsMessageService;
 import ru.gadjini.telegram.smart.bot.commons.utils.MemoryUtils;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
+import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
 import ru.gadjini.telegram.unzipper.service.progress.Lang;
 
@@ -20,54 +22,79 @@ public class UnzipMessageBuilder {
 
     private LocalisationService localisationService;
 
+    private ProgressManager progressManager;
+
     @Autowired
-    public UnzipMessageBuilder(LocalisationService localisationService) {
+    public UnzipMessageBuilder(LocalisationService localisationService, ProgressManager progressManager) {
         this.localisationService = localisationService;
+        this.progressManager = progressManager;
     }
 
-    public String buildExtractAllProgressMessage(int count, int current, ExtractFileStep extractFileStep, Lang lang, Locale locale) {
+    public String buildExtractAllProgressMessage(int count, int current, ExtractFileStep extractFileStep, long fileSize, Lang lang, Locale locale) {
         String msg = localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_ALL, new Object[]{current - 1, count}, locale);
 
-        return msg + "\n" + buildExtractFileProgressMessage(extractFileStep, lang, locale);
+        return msg + "\n" + buildExtractFileProgressMessage(extractFileStep, fileSize, lang, locale);
     }
 
-    public String buildExtractFileProgressMessage(ExtractFileStep extractFileStep, Lang lang, Locale locale) {
+    public String buildExtractFileProgressMessage(UnzipQueueItem queueItem, ExtractFileStep extractFileStep, Lang lang, Locale locale) {
+        StringBuilder message = new StringBuilder();
+
+        message.append(localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queueItem.getQueuePosition()}, locale)).append("\n\n");
+
+        message.append(buildExtractFileProgressMessage(extractFileStep, queueItem.getSize(), lang, locale));
+
+        return message.toString();
+    }
+
+    private String buildExtractFileProgressMessage(ExtractFileStep extractFileStep, long fileSize, Lang lang, Locale locale) {
         String formatter = lang == Lang.JAVA ? "%s" : "{}";
         String percentage = lang == Lang.JAVA ? "%%" : "%";
         String iconCheck = localisationService.getMessage(MessagesProperties.ICON_CHECK, locale);
+        boolean progress = isShowingProgress(fileSize, extractFileStep);
+        String percentageFormatter = progress ? "(" + formatter + percentage + ")..." : "...";
 
         switch (extractFileStep) {
-
             case EXTRACTING:
-                return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_STEP, locale) + " (" + formatter + percentage + ")...</b>\n" +
-                        localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " <b>" + formatter + "</b>\n" +
+                return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
+                        (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " <b>" + formatter + "</b>\n" : "") +
                         "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UPLOADING_STEP, locale) + "</b>";
             case UPLOADING:
                 return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_STEP, locale) + "</b> " + iconCheck + "\n" +
-                        "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UPLOADING_STEP, locale) + " (" + formatter + percentage + ")...</b>\n" +
-                        localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " " + formatter + "\n" +
-                        localisationService.getMessage(MessagesProperties.MESSAGE_SPEED, locale) + " <b>" + formatter + "</b>\n";
+                        "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UPLOADING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
+                        (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " <b>" + formatter + "</b>\n" : "") +
+                        (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_SPEED, locale) + " <b>" + formatter + "</b>" : "");
             default:
                 return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_STEP, locale) + "</b> " + iconCheck + "\n" +
-                    "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UPLOADING_STEP, locale) + "</b> " + iconCheck + "\n";
+                        "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UPLOADING_STEP, locale) + "</b> " + iconCheck + "\n";
         }
     }
 
-    public String buildUnzipProgressMessage(UnzipStep unzipStep, Lang lang, Locale locale) {
+    public String buildUnzipProgressMessage(UnzipQueueItem queueItem, UnzipStep unzipStep, Lang lang, Locale locale) {
+        StringBuilder message = new StringBuilder();
+
+        message.append(localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queueItem.getQueuePosition()}, locale)).append("\n\n");
+
+        message.append(buildUnzipProgressMessage(unzipStep, queueItem.getSize(), lang, locale));
+
+        return message.toString();
+    }
+
+    private String buildUnzipProgressMessage(UnzipStep unzipStep, long fileSize, Lang lang, Locale locale) {
         String formatter = lang == Lang.JAVA ? "%s" : "{}";
         String percentage = lang == Lang.JAVA ? "%%" : "%";
         String iconCheck = localisationService.getMessage(MessagesProperties.ICON_CHECK, locale);
+        boolean progress = isShowingProgress(fileSize, unzipStep);
+        String percentageFormatter = progress ? "(" + formatter + percentage + ")..." : "...";
 
         switch (unzipStep) {
-
             case DOWNLOADING:
-                return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_DOWNLOADING_STEP, locale) + " (" + formatter + percentage + ")...</b>\n" +
-                        localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " <b>" + formatter + "</b>\n" +
-                        localisationService.getMessage(MessagesProperties.MESSAGE_SPEED, locale) + " <b>" + formatter + "</b>\n" +
+                return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_DOWNLOADING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
+                        (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " <b>" + formatter + "</b>\n" : "") +
+                        (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_SPEED, locale) + " <b>" + formatter + "</b>\n" : "") +
                         "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UNZIPPING_STEP, locale) + "</b>";
             case UNZIPPING:
                 return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_DOWNLOADING_STEP, locale) + "</b> " + iconCheck + "\n" +
-                        "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UNZIPPING_STEP, locale) + " (" + formatter + percentage + ")...</b>\n" +
+                        "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UNZIPPING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
                         localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " " + formatter + "\n";
             default:
                 return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_DOWNLOADING_STEP, locale) + "</b> " + iconCheck + "\n" +
@@ -116,6 +143,22 @@ public class UnzipMessageBuilder {
                 new Object[]{message.toString()},
                 locale
         ), limit, offset);
+    }
+
+    private boolean isShowingProgress(long fileSize, ExtractFileStep extractFileStep) {
+        if (extractFileStep == ExtractFileStep.UPLOADING) {
+            return progressManager.isShowingUploadingProgress(fileSize);
+        }
+
+        return false;
+    }
+
+    private boolean isShowingProgress(long fileSize, UnzipStep unzipStep) {
+        if (unzipStep == UnzipStep.DOWNLOADING) {
+            return progressManager.isShowingDownloadingProgress(fileSize);
+        }
+
+        return false;
     }
 
     public static class FilesMessage {

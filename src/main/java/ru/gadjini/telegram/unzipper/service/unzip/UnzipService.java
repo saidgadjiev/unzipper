@@ -176,7 +176,8 @@ public class UnzipService {
         commandStateService.setState(userId, UnzipCommandNames.START_COMMAND_NAME, unzipState);
 
         sendStartUnzippingMessage(userId, queueItem.getId(), file.getFileSize(), locale, message -> {
-            queueItem.setMessageId(message.getMessageId());
+            queueItem.setProgressMessageId(message.getMessageId());
+            queueService.setProgressMessageId(queueItem.getId(), message.getMessageId());
             queueService.setProgressMessageId(queueItem.getId(), message.getMessageId());
             fileManager.setInputFilePending(userId, replyToMessageId, file.getFileId(), file.getFileSize(), TAG);
         });

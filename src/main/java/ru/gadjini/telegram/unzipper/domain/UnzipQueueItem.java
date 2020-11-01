@@ -18,15 +18,11 @@ public class UnzipQueueItem extends QueueItem {
 
     public static final String EXTRACT_FILE_SIZE = "extract_file_size";
 
-    public static final String MESSAGE_ID = "message_id";
-
     private TgFile file;
 
     private Format type;
 
     private ItemType itemType;
-
-    private Integer messageId;
 
     private int extractFileId;
 
@@ -62,14 +58,6 @@ public class UnzipQueueItem extends QueueItem {
 
     public void setExtractFileId(int extractFileId) {
         this.extractFileId = extractFileId;
-    }
-
-    public Integer getMessageId() {
-        return messageId;
-    }
-
-    public void setMessageId(Integer messageId) {
-        this.messageId = messageId;
     }
 
     public long getExtractFileSize() {
