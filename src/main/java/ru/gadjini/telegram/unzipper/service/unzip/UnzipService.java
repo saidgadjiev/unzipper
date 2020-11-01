@@ -15,7 +15,6 @@ import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.AnswerCallback
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.Message;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.InlineKeyboardMarkup;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
-import ru.gadjini.telegram.smart.bot.commons.service.ProgressManager;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
 import ru.gadjini.telegram.smart.bot.commons.service.command.CommandStateService;
 import ru.gadjini.telegram.smart.bot.commons.service.file.FileManager;
@@ -28,6 +27,7 @@ import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
 import ru.gadjini.telegram.unzipper.service.keyboard.InlineKeyboardService;
+import ru.gadjini.telegram.unzipper.service.progress.Lang;
 import ru.gadjini.telegram.unzipper.service.queue.UnzipQueueService;
 
 import java.util.Locale;
@@ -63,15 +63,13 @@ public class UnzipService {
 
     private UnzipMessageBuilder messageBuilder;
 
-    private ProgressManager progressManager;
-
     @Autowired
     public UnzipService(Set<UnzipDevice> unzipDevices, LocalisationService localisationService,
                         @Qualifier("messageLimits") MessageService messageService,
                         @Qualifier("mediaLimits") MediaMessageService mediaMessageService, FileManager fileManager,
                         UnzipQueueService unzipQueueService, QueueService queueService, UserService userService,
                         CommandStateService commandStateService, InlineKeyboardService inlineKeyboardService,
-                        UnzipMessageBuilder messageBuilder, ProgressManager progressManager) {
+                        UnzipMessageBuilder messageBuilder) {
         this.unzipDevices = unzipDevices;
         this.localisationService = localisationService;
         this.messageService = messageService;
@@ -83,7 +81,6 @@ public class UnzipService {
         this.commandStateService = commandStateService;
         this.inlineKeyboardService = inlineKeyboardService;
         this.messageBuilder = messageBuilder;
-        this.progressManager = progressManager;
     }
 
     public void extractAll(int userId, int messageId, int unzipJobId, String queryId) {
@@ -105,7 +102,7 @@ public class UnzipService {
         } else {
             UnzipQueueItem item = unzipQueueService.createExtractAllItem(userId, messageId,
                     unzipState.getFiles().values().stream().map(ZipFileHeader::getSize).mapToLong(i -> i).sum());
-            sendStartExtractingAllMessage(userId, messageId, item.getId());
+            sendStartExtractingAllMessage(item, unzipState.getFiles().size());
         }
     }
 
@@ -138,7 +135,7 @@ public class UnzipService {
             } else {
                 UnzipQueueItem item = unzipQueueService.createExtractFileItem(userId, messageId,
                         extractFileId, unzipState.getFiles().get(extractFileId).getSize());
-                sendStartExtractingFileMessage(userId, messageId, unzipState.getFiles().get(extractFileId).getSize(), item.getId());
+                sendStartExtractingFileMessage(item);
             }
         }
     }
@@ -175,7 +172,7 @@ public class UnzipService {
         unzipState.setUnzipJobId(queueItem.getId());
         commandStateService.setState(userId, UnzipCommandNames.START_COMMAND_NAME, unzipState);
 
-        sendStartUnzippingMessage(userId, queueItem.getId(), file.getFileSize(), locale, message -> {
+        sendStartUnzippingMessage(queueItem, locale, message -> {
             queueItem.setProgressMessageId(message.getMessageId());
             queueService.setProgressMessageId(queueItem.getId(), message.getMessageId());
             queueService.setProgressMessageId(queueItem.getId(), message.getMessageId());
@@ -183,36 +180,24 @@ public class UnzipService {
         });
     }
 
-    private void sendStartUnzippingMessage(int userId, int jobId, long fileSize, Locale locale, Consumer<Message> callback) {
-        if (progressManager.isShowingDownloadingProgress(fileSize)) {
-            String message = localisationService.getMessage(MessagesProperties.MESSAGE_AWAITING_PROCESSING, locale);
-            messageService.sendMessage(new SendMessage((long) userId, message)
-                    .setReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(jobId, locale)), callback);
-        } else {
-            String message = localisationService.getMessage(MessagesProperties.MESSAGE_ARCHIVE_PROCESSING, locale);
-            messageService.sendMessage(new SendMessage((long) userId, message)
-                    .setReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(jobId, locale)), callback);
-        }
+    private void sendStartUnzippingMessage(UnzipQueueItem queueItem, Locale locale, Consumer<Message> callback) {
+        String message = messageBuilder.buildUnzipProgressMessage(queueItem, UnzipStep.WAITING, Lang.JAVA, locale);
+        messageService.sendMessage(new SendMessage((long) queueItem.getUserId(), message)
+                .setReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(queueItem.getId(), locale)), callback);
     }
 
-    private void sendStartExtractingAllMessage(int userId, int messageId, int jobId) {
-        Locale locale = userService.getLocaleOrDefault(userId);
-        String message = localisationService.getMessage(MessagesProperties.MESSAGE_AWAITING_PROCESSING, locale);
-        messageService.editMessage(new EditMessageText((long) userId, messageId, message)
-                .setReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(jobId, locale)));
+    private void sendStartExtractingAllMessage(UnzipQueueItem queueItem, int count) {
+        Locale locale = userService.getLocaleOrDefault(queueItem.getUserId());
+        String message = messageBuilder.buildExtractAllProgressMessage(count, 0, ExtractFileStep.WAITING, queueItem.getExtractFileSize(), Lang.JAVA, locale);
+        messageService.editMessage(new EditMessageText((long) queueItem.getUserId(), queueItem.getProgressMessageId(), message)
+                .setReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(queueItem.getId(), locale)));
     }
 
-    private void sendStartExtractingFileMessage(int userId, int messageId, long fileSize, int jobId) {
-        Locale locale = userService.getLocaleOrDefault(userId);
-        if (progressManager.isShowingDownloadingProgress(fileSize)) {
-            String message = localisationService.getMessage(MessagesProperties.MESSAGE_AWAITING_PROCESSING, locale);
-            messageService.editMessage(new EditMessageText((long) userId, messageId, message)
-                    .setReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(jobId, locale)));
-        } else {
-            String message = localisationService.getMessage(MessagesProperties.MESSAGE_UNZIP_PROCESSING, locale);
-            messageService.editMessage(new EditMessageText((long) userId, messageId, message)
-                    .setReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(jobId, locale)));
-        }
+    private void sendStartExtractingFileMessage(UnzipQueueItem queueItem) {
+        Locale locale = userService.getLocaleOrDefault(queueItem.getUserId());
+        String message = messageBuilder.buildExtractFileProgressMessage(queueItem, ExtractFileStep.WAITING, Lang.JAVA, locale);
+        messageService.editMessage(new EditMessageText((long) queueItem.getUserId(), queueItem.getProgressMessageId(), message)
+                .setReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(queueItem.getId(), locale)));
     }
 
     private void checkCandidate(Format format, Locale locale) {
