@@ -30,10 +30,13 @@ public class UnzipMessageBuilder {
         this.progressManager = progressManager;
     }
 
-    public String buildExtractAllProgressMessage(int count, int current, ExtractFileStep extractFileStep, long fileSize, Lang lang, Locale locale) {
-        String msg = localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_ALL, new Object[]{current - 1, count}, locale);
+    public String buildExtractAllProgressMessage(int count, int current, ExtractFileStep extractFileStep, long fileSize, int queuePosition, Lang lang, Locale locale) {
+        StringBuilder message = new StringBuilder();
+        message.append(localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queuePosition}, locale)).append("\n\n");
+        message.append(localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_ALL, new Object[]{current - 1, count}, locale)).append("\n");
+        message.append(buildExtractFileProgressMessage(extractFileStep, fileSize, lang, locale));
 
-        return msg + "\n" + buildExtractFileProgressMessage(extractFileStep, fileSize, lang, locale) + "\n\n" +
+        return message.toString() + "\n\n" +
                 localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale);
     }
 
@@ -55,18 +58,22 @@ public class UnzipMessageBuilder {
         String percentageFormatter = progress ? "(" + formatter + percentage + ")..." : "...";
 
         switch (extractFileStep) {
+            case WAITING:
+                return "<b>" + localisationService.getMessage(MessagesProperties.WAITING_STEP, locale) + "...</b>\n" +
+                        "<b>" + localisationService.getMessage(MessagesProperties.EXTRACTING_STEP, locale) + "</b>\n" +
+                        "<b>" + localisationService.getMessage(MessagesProperties.UPLOADING_STEP, locale) + "</b>";
             case EXTRACTING:
-                return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
+                return "<b>" + localisationService.getMessage(MessagesProperties.EXTRACTING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
                         (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " <b>" + formatter + "</b>\n" : "") +
-                        "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UPLOADING_STEP, locale) + "</b>";
+                        "<b>" + localisationService.getMessage(MessagesProperties.UPLOADING_STEP, locale) + "</b>";
             case UPLOADING:
-                return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_STEP, locale) + "</b> " + iconCheck + "\n" +
-                        "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UPLOADING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
+                return "<b>" + localisationService.getMessage(MessagesProperties.EXTRACTING_STEP, locale) + "</b> " + iconCheck + "\n" +
+                        "<b>" + localisationService.getMessage(MessagesProperties.UPLOADING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
                         (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " <b>" + formatter + "</b>\n" : "") +
                         (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_SPEED, locale) + " <b>" + formatter + "</b>" : "");
             default:
-                return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_STEP, locale) + "</b> " + iconCheck + "\n" +
-                        "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UPLOADING_STEP, locale) + "</b> " + iconCheck + "\n";
+                return "<b>" + localisationService.getMessage(MessagesProperties.EXTRACTING_STEP, locale) + "</b> " + iconCheck + "\n" +
+                        "<b>" + localisationService.getMessage(MessagesProperties.UPLOADING_STEP, locale) + "</b> " + iconCheck + "\n";
         }
     }
 
@@ -88,18 +95,22 @@ public class UnzipMessageBuilder {
         String percentageFormatter = progress ? "(" + formatter + percentage + ")..." : "...";
 
         switch (unzipStep) {
+            case WAITING:
+                return "<b>" + localisationService.getMessage(MessagesProperties.WAITING_STEP, locale) + "...</b>\n" +
+                        "<b>" + localisationService.getMessage(MessagesProperties.DOWNLOADING_STEP, locale) + "</b>\n" +
+                        "<b>" + localisationService.getMessage(MessagesProperties.UNZIPPING_STEP, locale) + "</b>";
             case DOWNLOADING:
-                return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_DOWNLOADING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
+                return "<b>" + localisationService.getMessage(MessagesProperties.DOWNLOADING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
                         (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " <b>" + formatter + "</b>\n" : "") +
                         (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_SPEED, locale) + " <b>" + formatter + "</b>\n" : "") +
-                        "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UNZIPPING_STEP, locale) + "</b>";
+                        "<b>" + localisationService.getMessage(MessagesProperties.UNZIPPING_STEP, locale) + "</b>";
             case UNZIPPING:
-                return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_DOWNLOADING_STEP, locale) + "</b> " + iconCheck + "\n" +
-                        "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UNZIPPING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
+                return "<b>" + localisationService.getMessage(MessagesProperties.DOWNLOADING_STEP, locale) + "</b> " + iconCheck + "\n" +
+                        "<b>" + localisationService.getMessage(MessagesProperties.UNZIPPING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
                         localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " " + formatter + "\n";
             default:
-                return "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_DOWNLOADING_STEP, locale) + "</b> " + iconCheck + "\n" +
-                        "<b>" + localisationService.getMessage(MessagesProperties.MESSAGE_UNZIPPING_STEP, locale) + " </b>" + iconCheck + "\n";
+                return "<b>" + localisationService.getMessage(MessagesProperties.DOWNLOADING_STEP, locale) + "</b> " + iconCheck + "\n" +
+                        "<b>" + localisationService.getMessage(MessagesProperties.UNZIPPING_STEP, locale) + " </b>" + iconCheck + "\n";
         }
     }
 
