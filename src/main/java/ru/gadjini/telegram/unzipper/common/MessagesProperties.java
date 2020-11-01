@@ -11,10 +11,6 @@ public class MessagesProperties {
 
     public static final String MESSAGE_SUPPORTED_ZIP_FORMATS = "message.supported.zip.formats";
 
-    public static final String MESSAGE_QUERY_CANCELED = "message.query.canceled";
-
-    public static final String MESSAGE_QUERY_ITEM_NOT_FOUND = "message.query.item.not.found";
-
     public static final String SECOND_PART = "second.part";
 
     public static final String MESSAGE_ZIP_FILE = "message.unzip.welcome";
@@ -49,29 +45,23 @@ public class MessagesProperties {
 
     public static final String MESSAGE_PREV_PAGE = "message.prev.page";
 
-    public static final String MESSAGE_DOWNLOADING_STEP = "message.downloading.step";
+    public static final String DOWNLOADING_STEP = "downloading.step";
 
-    public static final String MESSAGE_UPLOADING_STEP = "message.uploading.step";
+    public static final String UPLOADING_STEP = "uploading.step";
 
     public static final String ICON_CHECK = "icon.check";
 
     public static final String MESSAGE_ETA = "message.eta";
 
-    public static final String MESSAGE_UNZIPPING_STEP = "message.unzipping.step";
+    public static final String UNZIPPING_STEP = "unzipping.step";
 
-    public static final String MESSAGE_EXTRACTING_STEP = "message.extracting.step";
+    public static final String WAITING_STEP = "waiting.step";
+
+    public static final String EXTRACTING_STEP = "extracting.step";
 
     public static final String MESSAGE_EXTRACTING_ALL = "message.extracting.all";
 
-    public static final String MESSAGE_AWAITING_PROCESSING = "message.awaiting.processing";
-
-    public static final String MESSAGE_ARCHIVE_PROCESSING = "message.archive.processing";
-
-    public static final String MESSAGE_UNZIP_PROCESSING = "message.unzip.processing";
-
     public static final String MESSAGE_SPEED = "message.speed";
-
-    public static final String MESSAGE_BOT_IS_SLEEPING = "message.bot.is.sleeping";
 
     public static final String MESSAGE_FILE_QUEUED = "message.file.queued";
 }

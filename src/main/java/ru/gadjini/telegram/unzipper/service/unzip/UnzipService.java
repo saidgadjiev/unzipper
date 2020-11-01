@@ -102,7 +102,7 @@ public class UnzipService {
         } else {
             UnzipQueueItem item = unzipQueueService.createExtractAllItem(userId, messageId,
                     unzipState.getFiles().values().stream().map(ZipFileHeader::getSize).mapToLong(i -> i).sum());
-            sendStartExtractingAllMessage(item, unzipState.getFiles().size());
+            sendStartExtractingAllMessage(item);
         }
     }
 
@@ -186,9 +186,9 @@ public class UnzipService {
                 .setReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(queueItem.getId(), locale)), callback);
     }
 
-    private void sendStartExtractingAllMessage(UnzipQueueItem queueItem, int count) {
+    private void sendStartExtractingAllMessage(UnzipQueueItem queueItem) {
         Locale locale = userService.getLocaleOrDefault(queueItem.getUserId());
-        String message = messageBuilder.buildExtractAllProgressMessage(count, 0, ExtractFileStep.WAITING, queueItem.getExtractFileSize(), Lang.JAVA, locale);
+        String message = messageBuilder.buildExtractFileProgressMessage(queueItem, ExtractFileStep.WAITING, Lang.JAVA, locale);
         messageService.editMessage(new EditMessageText((long) queueItem.getUserId(), queueItem.getProgressMessageId(), message)
                 .setReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(queueItem.getId(), locale)));
     }

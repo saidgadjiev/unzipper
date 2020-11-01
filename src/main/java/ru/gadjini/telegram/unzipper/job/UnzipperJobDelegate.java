@@ -114,27 +114,25 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
         }
     }
 
-    private Progress extractAllProgress(int count, int current, long chatId, int jobId, int processMessageId, long fileSize) {
-        if (progressManager.isShowingUploadingProgress(fileSize)) {
-            Locale locale = userService.getLocaleOrDefault((int) chatId);
-            Progress progress = new Progress();
-            progress.setLocale(locale.getLanguage());
-            progress.setChatId(chatId);
-            progress.setProgressMessageId(processMessageId);
-            progress.setProgressMessage(messageBuilder.buildExtractAllProgressMessage(count, current, ExtractFileStep.UPLOADING, fileSize, Lang.PYTHON, locale));
+    private Progress extractAllProgress(UnzipQueueItem queueItem, int count, int current, long fileSize) {
+        Locale locale = userService.getLocaleOrDefault(queueItem.getUserId());
+        Progress progress = new Progress();
+        progress.setLocale(locale.getLanguage());
+        progress.setChatId(queueItem.getUserId());
+        progress.setProgressMessageId(queueItem.getProgressMessageId());
+        progress.setProgressMessage(messageBuilder.buildExtractAllProgressMessage(count, current, ExtractFileStep.UPLOADING,
+                fileSize, queueItem.getQueuePosition(), Lang.PYTHON, locale));
 
-            if (current < count) {
-                String completionMessage = messageBuilder.buildExtractAllProgressMessage(count, current + 1, ExtractFileStep.EXTRACTING, fileSize, Lang.JAVA, locale);
-                String seconds = localisationService.getMessage(MessagesProperties.SECOND_PART, locale);
-                progress.setAfterProgressCompletionMessage(String.format(completionMessage, 50, "10 " + seconds));
-                progress.setAfterProgressCompletionReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(jobId, locale));
-            }
-            progress.setProgressReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(jobId, locale));
-
-            return progress;
-        } else {
-            return null;
+        if (current < count) {
+            String completionMessage = messageBuilder.buildExtractAllProgressMessage(count, current + 1, ExtractFileStep.EXTRACTING, fileSize,
+                    queueItem.getQueuePosition(), Lang.JAVA, locale);
+            String seconds = localisationService.getMessage(MessagesProperties.SECOND_PART, locale);
+            progress.setAfterProgressCompletionMessage(String.format(completionMessage, 50, "10 " + seconds));
+            progress.setAfterProgressCompletionReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(queueItem.getId(), locale));
         }
+        progress.setProgressReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(queueItem.getId(), locale));
+
+        return progress;
     }
 
     private Progress extractFileProgress(UnzipQueueItem queueItem) {
@@ -281,7 +279,7 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
 
         @Override
         public String getWaitingMessage(QueueItem queueItem, Locale locale) {
-            return localisationService.getMessage(MessagesProperties.MESSAGE_AWAITING_PROCESSING, locale);
+            return messageBuilder.buildUnzipProgressMessage((UnzipQueueItem) queueItem, UnzipStep.WAITING, Lang.JAVA, locale);
         }
 
         @Override
@@ -335,7 +333,7 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
                     String fileName = FilenameUtils.getName(entry.getValue().getPath());
                     mediaMessageService.sendFile(item.getUserId(), unzipState.getFilesCache().get(entry.getKey()), fileName);
                     String message = messageBuilder.buildExtractAllProgressMessage(unzipState.getFiles().size(), i + 1,
-                            ExtractFileStep.EXTRACTING, entry.getValue().getSize(), Lang.JAVA, locale);
+                            ExtractFileStep.EXTRACTING, entry.getValue().getSize(), item.getQueuePosition(), Lang.JAVA, locale);
                     String seconds = localisationService.getMessage(MessagesProperties.SECOND_PART, locale);
                     messageService.editMessage(new EditMessageText(item.getUserId(), item.getProgressMessageId(), String.format(message, 50, "7 " + seconds))
                             .setReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(item.getId(), locale)));
@@ -346,7 +344,7 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
 
                     String fileName = FilenameUtils.getName(entry.getValue().getPath());
                     SendFileResult result = mediaMessageService.sendDocument(new SendDocument((long) item.getUserId(), fileName, file.getFile())
-                            .setProgress(extractAllProgress(unzipState.getFiles().size(), i, item.getUserId(), item.getId(), item.getProgressMessageId(), file.length()))
+                            .setProgress(extractAllProgress(item, unzipState.getFiles().size(), i, file.length()))
                             .setCaption(fileName));
                     if (result != null) {
                         unzipState.getFilesCache().put(entry.getKey(), result.getFileId());
@@ -377,7 +375,7 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
 
         @Override
         public String getWaitingMessage(QueueItem queueItem, Locale locale) {
-            return localisationService.getMessage(MessagesProperties.MESSAGE_AWAITING_PROCESSING, locale);
+            return messageBuilder.buildExtractFileProgressMessage((UnzipQueueItem) queueItem, ExtractFileStep.WAITING, Lang.JAVA, locale);
         }
 
         @Override
@@ -474,7 +472,7 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
 
         @Override
         public String getWaitingMessage(QueueItem queueItem, Locale locale) {
-            return localisationService.getMessage(MessagesProperties.MESSAGE_AWAITING_PROCESSING, locale);
+            return messageBuilder.buildExtractFileProgressMessage((UnzipQueueItem) queueItem, ExtractFileStep.WAITING, Lang.JAVA, locale);
         }
 
         @Override
