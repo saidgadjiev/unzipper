@@ -1,14 +1,11 @@
 package ru.gadjini.telegram.unzipper.job;
 
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
-import ru.gadjini.telegram.smart.bot.commons.domain.QueueItem;
-import ru.gadjini.telegram.smart.bot.commons.exception.ProcessException;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
 import ru.gadjini.telegram.smart.bot.commons.model.SendFileResult;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.SendDocument;
@@ -25,7 +22,8 @@ import ru.gadjini.telegram.smart.bot.commons.service.file.FileManager;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MediaMessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
-import ru.gadjini.telegram.smart.bot.commons.service.queue.QueueJobDelegate;
+import ru.gadjini.telegram.smart.bot.commons.service.queue.QueueWorker;
+import ru.gadjini.telegram.smart.bot.commons.service.queue.QueueWorkerFactory;
 import ru.gadjini.telegram.smart.bot.commons.utils.MemoryUtils;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
@@ -35,14 +33,13 @@ import ru.gadjini.telegram.unzipper.service.keyboard.InlineKeyboardService;
 import ru.gadjini.telegram.unzipper.service.progress.Lang;
 import ru.gadjini.telegram.unzipper.service.unzip.*;
 
-import java.io.File;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 
 @Component
-public class UnzipperJobDelegate implements QueueJobDelegate {
+public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueItem> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(UnzipperJobDelegate.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(UnzipQueueWorkerFactory.class);
 
     private Set<UnzipDevice> unzipDevices;
 
@@ -67,12 +64,12 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
     private ProgressManager progressManager;
 
     @Autowired
-    public UnzipperJobDelegate(Set<UnzipDevice> unzipDevices,
-                               LocalisationService localisationService, @Qualifier("messageLimits") MessageService messageService,
-                               @Qualifier("forceMedia") MediaMessageService mediaMessageService, FileManager fileManager,
-                               TempFileService fileService, UserService userService, CommandStateService commandStateService,
-                               InlineKeyboardService inlineKeyboardService, UnzipMessageBuilder messageBuilder,
-                               ProgressManager progressManager) {
+    public UnzipQueueWorkerFactory(Set<UnzipDevice> unzipDevices,
+                                   LocalisationService localisationService, @Qualifier("messageLimits") MessageService messageService,
+                                   @Qualifier("forceMedia") MediaMessageService mediaMessageService, FileManager fileManager,
+                                   TempFileService fileService, UserService userService, CommandStateService commandStateService,
+                                   InlineKeyboardService inlineKeyboardService, UnzipMessageBuilder messageBuilder,
+                                   ProgressManager progressManager) {
         this.unzipDevices = unzipDevices;
         this.localisationService = localisationService;
         this.messageService = messageService;
@@ -87,30 +84,13 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
     }
 
     @Override
-    public WorkerTaskDelegate mapWorker(QueueItem queueItem) {
-        return toTask((UnzipQueueItem) queueItem);
-    }
-
-    @Override
-    public void currentTasksRemoved(int userId) {
-        UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
-
-        if (unzipState != null) {
-            LOGGER.debug("Remove previous state({})", userId);
-            if (StringUtils.isNotBlank(unzipState.getArchivePath())) {
-                new SmartTempFile(new File(unzipState.getArchivePath())).smartDelete();
-            }
-            commandStateService.deleteState(userId, UnzipCommandNames.START_COMMAND_NAME);
-        }
-    }
-
-    private WorkerTaskDelegate toTask(UnzipQueueItem item) {
+    public QueueWorker createWorker(UnzipQueueItem item) {
         if (item.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
-            return new UnzipTask(item);
+            return new UnzipQueueWorker(item);
         } else if (item.getItemType() == UnzipQueueItem.ItemType.EXTRACT_FILE) {
-            return new ExtractFileTask(item);
+            return new ExtractFileQueueWorker(item);
         } else {
-            return new ExtractAllTask(item);
+            return new ExtractAllQueueWorker(item);
         }
     }
 
@@ -189,32 +169,11 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
         throw new IllegalArgumentException("Candidate not found for " + format + ". Wtf?");
     }
 
-    @Override
-    public void afterTaskCanceled(QueueItem queueItem) {
-        if (((UnzipQueueItem) queueItem).getItemType() == UnzipQueueItem.ItemType.UNZIP) {
-            commandStateService.deleteState(queueItem.getUserId(), UnzipCommandNames.START_COMMAND_NAME);
-
-            UnzipState unzipState = commandStateService.getState(queueItem.getUserId(), UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
-            if (unzipState != null && StringUtils.isNotBlank(unzipState.getArchivePath())) {
-                new SmartTempFile(new File(unzipState.getArchivePath())).smartDelete();
-            }
-        } else {
-            UnzipState unzipState = commandStateService.getState(queueItem.getUserId(), UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
-            if (unzipState != null) {
-                Locale locale = userService.getLocaleOrDefault(queueItem.getUserId());
-                UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, unzipState.getOffset(), locale);
-                InlineKeyboardMarkup filesListKeyboard = inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), unzipState.getPrevLimit(), filesList.getOffset(), unzipState.getUnzipJobId(), locale);
-                messageService.editMessage(new EditMessageText(queueItem.getUserId(), queueItem.getProgressMessageId(), filesList.getMessage())
-                        .setReplyMarkup(filesListKeyboard));
-            }
-        }
-    }
-
-    public class UnzipTask implements WorkerTaskDelegate {
+    public class UnzipQueueWorker implements QueueWorker {
 
         private static final String TAG = "unzip";
 
-        private final Logger LOGGER = LoggerFactory.getLogger(UnzipTask.class);
+        private final Logger LOGGER = LoggerFactory.getLogger(UnzipQueueWorker.class);
 
         private UnzipDevice unzipDevice;
 
@@ -222,7 +181,7 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
 
         private volatile SmartTempFile in;
 
-        private UnzipTask(UnzipQueueItem item) {
+        private UnzipQueueWorker(UnzipQueueItem item) {
             this.unzipDevice = getCandidate(item.getType());
             this.item = item;
         }
@@ -263,30 +222,6 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
             }
         }
 
-        @Override
-        public String getErrorCode(Throwable e) {
-            if (e instanceof ProcessException) {
-                return MessagesProperties.MESSAGE_UNZIP_ERROR;
-            }
-
-            return null;
-        }
-
-        @Override
-        public boolean shouldBeDeletedAfterCompleted() {
-            return true;
-        }
-
-        @Override
-        public String getWaitingMessage(QueueItem queueItem, Locale locale) {
-            return messageBuilder.buildUnzipProgressMessage((UnzipQueueItem) queueItem, UnzipStep.WAITING, Lang.JAVA, locale);
-        }
-
-        @Override
-        public InlineKeyboardMarkup getWaitingKeyboard(QueueItem queueItem, Locale locale) {
-            return inlineKeyboardService.getUnzipProcessingKeyboard(queueItem.getId(), locale);
-        }
-
         private UnzipState initAndGetState(String zipFile) {
             UnzipState unzipState = commandStateService.getState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
             if (unzipState == null) {
@@ -304,7 +239,7 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
         }
     }
 
-    public class ExtractAllTask implements WorkerTaskDelegate {
+    public class ExtractAllQueueWorker implements QueueWorker {
 
         private static final String TAG = "extractall";
 
@@ -314,7 +249,7 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
 
         private Queue<SmartTempFile> files = new LinkedBlockingQueue<>();
 
-        private ExtractAllTask(UnzipQueueItem item) {
+        private ExtractAllQueueWorker(UnzipQueueItem item) {
             this.item = item;
         }
 
@@ -362,25 +297,10 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
         }
 
         @Override
-        public boolean shouldBeDeletedAfterCompleted() {
-            return true;
-        }
-
-        @Override
         public void finish() {
             files.forEach(SmartTempFile::smartDelete);
             UnzipState unzipState = commandStateService.getState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
             finishExtracting(item, unzipState);
-        }
-
-        @Override
-        public String getWaitingMessage(QueueItem queueItem, Locale locale) {
-            return messageBuilder.buildExtractFileProgressMessage((UnzipQueueItem) queueItem, ExtractFileStep.WAITING, Lang.JAVA, locale);
-        }
-
-        @Override
-        public InlineKeyboardMarkup getWaitingKeyboard(QueueItem queueItem, Locale locale) {
-            return inlineKeyboardService.getUnzipProcessingKeyboard(queueItem.getId(), locale);
         }
 
         @Override
@@ -391,28 +311,19 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
                 }
             });
         }
-
-        @Override
-        public String getErrorCode(Throwable e) {
-            if (e instanceof ProcessException) {
-                return MessagesProperties.MESSAGE_UNZIP_ERROR;
-            }
-
-            return null;
-        }
     }
 
-    public class ExtractFileTask implements WorkerTaskDelegate {
+    public class ExtractFileQueueWorker implements QueueWorker {
 
         private static final String TAG = "extractfile";
 
-        private final Logger LOGGER = LoggerFactory.getLogger(ExtractFileTask.class);
+        private final Logger LOGGER = LoggerFactory.getLogger(ExtractFileQueueWorker.class);
 
         private final UnzipQueueItem item;
 
         private volatile SmartTempFile out;
 
-        private ExtractFileTask(UnzipQueueItem item) {
+        private ExtractFileQueueWorker(UnzipQueueItem item) {
             this.item = item;
         }
 
@@ -450,34 +361,10 @@ public class UnzipperJobDelegate implements QueueJobDelegate {
         }
 
         @Override
-        public InlineKeyboardMarkup getWaitingKeyboard(QueueItem queueItem, Locale locale) {
-            return inlineKeyboardService.getUnzipProcessingKeyboard(queueItem.getId(), locale);
-        }
-
-        @Override
         public void cancel() {
             if (out != null && !fileManager.cancelUploading(out.getAbsolutePath())) {
                 out.smartDelete();
             }
-        }
-
-        @Override
-        public String getErrorCode(Throwable e) {
-            if (e instanceof ProcessException) {
-                return MessagesProperties.MESSAGE_EXTRACT_FILE_ERROR;
-            }
-
-            return null;
-        }
-
-        @Override
-        public String getWaitingMessage(QueueItem queueItem, Locale locale) {
-            return messageBuilder.buildExtractFileProgressMessage((UnzipQueueItem) queueItem, ExtractFileStep.WAITING, Lang.JAVA, locale);
-        }
-
-        @Override
-        public boolean shouldBeDeletedAfterCompleted() {
-            return true;
         }
     }
 }
