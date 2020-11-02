@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
 import ru.gadjini.telegram.smart.bot.commons.model.SendFileResult;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.SendDocument;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.SendMessage;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.updatemessages.EditMessageText;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.Progress;
 import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.InlineKeyboardMarkup;
@@ -154,9 +153,9 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
         UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, unzipState.getOffset(), locale);
         InlineKeyboardMarkup filesListKeyboard = inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), unzipState.getPrevLimit(), filesList.getOffset(), unzipState.getUnzipJobId(), locale);
 
-        messageService.editMessage(new EditMessageText(queueItem.getUserId(), queueItem.getProgressMessageId(), messageBuilder.buildExtractFileProgressMessage(queueItem, ExtractFileStep.COMPLETED, Lang.JAVA, locale)));
-        messageService.sendMessage(new SendMessage((long) queueItem.getUserId(), filesList.getMessage())
-                .setReplyMarkup(filesListKeyboard));
+        messageService.editMessage(new EditMessageText(queueItem.getUserId(), queueItem.getProgressMessageId(), filesList.getMessage())
+                .setReplyMarkup(filesListKeyboard)
+                .setThrowEx(true));
     }
 
     private UnzipDevice getCandidate(Format format) {
@@ -199,9 +198,10 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
             Locale locale = userService.getLocaleOrDefault(item.getUserId());
             UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, 0, locale);
 
-            messageService.editMessage(new EditMessageText(item.getUserId(), item.getProgressMessageId(), messageBuilder.buildUnzipProgressMessage(item, UnzipStep.COMPLETED, Lang.JAVA, locale)));
-            messageService.sendMessage(new SendMessage((long) item.getUserId(), filesList.getMessage())
-                    .setReplyMarkup(inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(), 0, filesList.getOffset(), item.getId(), locale)));
+            messageService.editMessage(new EditMessageText(item.getUserId(), item.getProgressMessageId(), filesList.getMessage())
+                    .setThrowEx(true)
+                    .setReplyMarkup(inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(),
+                            0, filesList.getOffset(), item.getId(), locale)));
             commandStateService.setState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, unzipState);
 
             LOGGER.debug("Finish({}, {}, {})", item.getUserId(), size, item.getFile().getFormat());
@@ -328,7 +328,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
         }
 
         @Override
-        public void execute() {
+        public void execute() throws Exception {
             String size;
 
             UnzipState unzipState = commandStateService.getState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);

@@ -1,17 +1,20 @@
 package ru.gadjini.telegram.unzipper.service.unzip;
 
+import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Component;
-import ru.gadjini.telegram.smart.bot.commons.service.ProcessExecutor;
-import ru.gadjini.telegram.unzipper.condition.LinuxMacCondition;
 import ru.gadjini.telegram.smart.bot.commons.exception.ProcessException;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
-import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
+import ru.gadjini.telegram.smart.bot.commons.service.ProcessExecutor;
 import ru.gadjini.telegram.smart.bot.commons.service.TempFileService;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
+import ru.gadjini.telegram.unzipper.condition.LinuxMacCondition;
+import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
@@ -84,16 +87,30 @@ public class P7ZipUnzipDevice extends BaseUnzipDevice {
     }
 
     @Override
-    public void unzip(String fileHeader, String archivePath, String out) {
-        processExecutor.executeWithFile(buildUnzipFileCommand(fileHeader, archivePath), out);
+    public void unzip(String fileHeader, String archivePath, String out) throws IOException {
+        File listFile = getListFile(fileHeader);
+        try {
+            processExecutor.executeWithFile(buildUnzipFileCommand(listFile.getAbsolutePath(), archivePath), out);
+        } finally {
+            FileUtils.deleteQuietly(listFile);
+        }
+    }
+
+    private File getListFile(String fileHeader) throws IOException {
+        File listFile = File.createTempFile("list", ".txt");
+        try (PrintWriter printWriter = new PrintWriter(listFile)) {
+            printWriter.print(fileHeader);
+
+            return listFile;
+        }
     }
 
     private String[] buildContentsCommand(String in) {
         return new String[]{"7z", "l", "-slt", in};
     }
 
-    private String[] buildUnzipFileCommand(String file, String archive) {
-        return new String[]{"7z", "e", archive, "-so", "-y", "--", file};
+    private String[] buildUnzipFileCommand(String listFile, String archive) {
+        return new String[]{"7z", "e", archive, "-so", "-y", "@" + listFile};
     }
 
     private String[] buildUnzipCommand(String in, String out) {
