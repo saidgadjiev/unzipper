@@ -133,9 +133,9 @@ public class UnzipMessageBuilder implements UpdateQueryStatusCommandMessageProvi
     public String getWaitingMessage(QueueItem queueItem, Locale locale) {
         UnzipQueueItem unzipQueueItem = (UnzipQueueItem) queueItem;
         if (unzipQueueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
-            return buildUnzipProgressMessage(UnzipStep.WAITING, locale);
+            return buildUnzipProgressMessage(unzipQueueItem, UnzipStep.WAITING, locale);
         } else {
-            return buildExtractFileProgressMessage(ExtractFileStep.WAITING, locale);
+            return buildExtractFileProgressMessage(unzipQueueItem, ExtractFileStep.WAITING, locale);
         }
     }
 
