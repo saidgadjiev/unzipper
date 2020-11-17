@@ -202,7 +202,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
 
         @Override
         public void cancel() {
-            if (!fileManager.cancelDownloading(item.getFile().getFileId()) && in != null) {
+            if (!fileManager.cancelDownloading(item.getFile().getFileId(), item.getSize()) && in != null) {
                 in.smartDelete();
             }
             commandStateService.deleteState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME);
