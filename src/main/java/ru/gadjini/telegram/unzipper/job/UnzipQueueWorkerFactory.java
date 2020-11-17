@@ -236,7 +236,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
 
         private static final String TAG = "extractall";
 
-        private static final int SLEEP_TIME = 2500;
+        private static final int SLEEP_TIME = 4000;
 
         private UnzipQueueItem item;
 
