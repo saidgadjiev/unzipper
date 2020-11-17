@@ -186,7 +186,7 @@ public class UnzipService {
         messageService.editMessage(EditMessageText.builder().chatId(String.valueOf(queueItem.getUserId()))
                 .messageId(queueItem.getProgressMessageId())
                 .text(message)
-                .replyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(queueItem.getId(), locale)).build(), false);
+                .replyMarkup(inlineKeyboardService.getExtractFileWaitingKeyboard(queueItem.getId(), locale)).build(), false);
     }
 
     private void checkCandidate(Format format, Locale locale) {
