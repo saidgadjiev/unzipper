@@ -121,7 +121,7 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
 
         return jdbcTemplate.query(
                 "WITH r AS (\n" +
-                        "    UPDATE unzip_queue SET status = 1, last_run_at = now(), started_at = COALESCE(started_at, now())" +
+                        "    UPDATE unzip_queue SET status = 1, attempts = attempts + 1, last_run_at = now(), started_at = COALESCE(started_at, now())" +
                         " WHERE id IN (SELECT id FROM unzip_queue " +
                         "WHERE status = 0 AND attempts < ? AND CASE WHEN item_type = 0 THEN " +
                         "(file).size " + sign + " ? ELSE " +
