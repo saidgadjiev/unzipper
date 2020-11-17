@@ -2,60 +2,46 @@ package ru.gadjini.telegram.unzipper.service.unzip;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import ru.gadjini.telegram.smart.bot.commons.domain.QueueItem;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
-import ru.gadjini.telegram.smart.bot.commons.service.ProgressManager;
 import ru.gadjini.telegram.smart.bot.commons.service.message.TgLimitsMessageService;
+import ru.gadjini.telegram.smart.bot.commons.service.update.UpdateQueryStatusCommandMessageProvider;
 import ru.gadjini.telegram.smart.bot.commons.utils.MemoryUtils;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
-import ru.gadjini.telegram.unzipper.service.progress.Lang;
 
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
 
 @Service
-public class UnzipMessageBuilder {
+public class UnzipMessageBuilder implements UpdateQueryStatusCommandMessageProvider {
 
     private static final int MAX_FILES_IN_MESSAGE = 20;
 
     private LocalisationService localisationService;
 
-    private ProgressManager progressManager;
-
     @Autowired
-    public UnzipMessageBuilder(LocalisationService localisationService, ProgressManager progressManager) {
+    public UnzipMessageBuilder(LocalisationService localisationService) {
         this.localisationService = localisationService;
-        this.progressManager = progressManager;
     }
 
-    public String buildExtractAllProgressMessage(int count, int current, ExtractFileStep extractFileStep, long fileSize, int queuePosition, Lang lang, Locale locale) {
-        StringBuilder message = new StringBuilder();
-        message.append(localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queuePosition}, locale)).append("\n\n");
-        message.append(localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_ALL, new Object[]{current - 1, count}, locale)).append("\n");
-        message.append(buildExtractFileProgressMessage(extractFileStep, fileSize, lang, locale));
-
-        return message.toString() + "\n\n" +
+    public String buildExtractAllProgressMessage(int count, int current, ExtractFileStep extractFileStep, int queuePosition, Locale locale) {
+        return localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queuePosition}, locale) + "\n\n" +
+                localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_ALL, new Object[]{current - 1, count}, locale) + "\n" +
+                buildExtractFileProgressMessage(extractFileStep, locale) + "\n\n" +
                 localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale);
     }
 
-    public String buildExtractFileProgressMessage(UnzipQueueItem queueItem, ExtractFileStep extractFileStep, Lang lang, Locale locale) {
-        StringBuilder message = new StringBuilder();
-
-        message.append(localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queueItem.getQueuePosition()}, locale)).append("\n\n");
-        message.append(buildExtractFileProgressMessage(extractFileStep, queueItem.getSize(), lang, locale)).append("\n\n");
-        message.append(localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale));
-
-        return message.toString();
+    public String buildExtractFileProgressMessage(UnzipQueueItem queueItem, ExtractFileStep extractFileStep, Locale locale) {
+        return localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queueItem.getQueuePosition()}, locale) + "\n\n" +
+                buildExtractFileProgressMessage(extractFileStep, locale) + "\n\n" +
+                localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale);
     }
 
-    private String buildExtractFileProgressMessage(ExtractFileStep extractFileStep, long fileSize, Lang lang, Locale locale) {
-        String formatter = lang == Lang.JAVA ? "%s" : "{}";
-        String percentage = lang == Lang.JAVA ? "%%" : "%";
+    private String buildExtractFileProgressMessage(ExtractFileStep extractFileStep, Locale locale) {
         String iconCheck = localisationService.getMessage(MessagesProperties.ICON_CHECK, locale);
-        boolean progress = isShowingProgress(fileSize, extractFileStep);
-        String percentageFormatter = progress ? "(" + formatter + percentage + ")..." : "...";
 
         switch (extractFileStep) {
             case WAITING:
@@ -63,36 +49,25 @@ public class UnzipMessageBuilder {
                         "<b>" + localisationService.getMessage(MessagesProperties.EXTRACTING_STEP, locale) + "</b>\n" +
                         "<b>" + localisationService.getMessage(MessagesProperties.UPLOADING_STEP, locale) + "</b>";
             case EXTRACTING:
-                return "<b>" + localisationService.getMessage(MessagesProperties.EXTRACTING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
-                        (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " <b>" + formatter + "</b>\n" : "") +
+                return "<b>" + localisationService.getMessage(MessagesProperties.EXTRACTING_STEP, locale) + "...</b>\n" +
                         "<b>" + localisationService.getMessage(MessagesProperties.UPLOADING_STEP, locale) + "</b>";
             case UPLOADING:
                 return "<b>" + localisationService.getMessage(MessagesProperties.EXTRACTING_STEP, locale) + "</b> " + iconCheck + "\n" +
-                        "<b>" + localisationService.getMessage(MessagesProperties.UPLOADING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
-                        (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " <b>" + formatter + "</b>\n" : "") +
-                        (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_SPEED, locale) + " <b>" + formatter + "</b>" : "");
+                        "<b>" + localisationService.getMessage(MessagesProperties.UPLOADING_STEP, locale) + "...</b>";
             default:
                 return "<b>" + localisationService.getMessage(MessagesProperties.EXTRACTING_STEP, locale) + "</b> " + iconCheck + "\n" +
                         "<b>" + localisationService.getMessage(MessagesProperties.UPLOADING_STEP, locale) + "</b> " + iconCheck + "\n";
         }
     }
 
-    public String buildUnzipProgressMessage(UnzipQueueItem queueItem, UnzipStep unzipStep, Lang lang, Locale locale) {
-        StringBuilder message = new StringBuilder();
-
-        message.append(localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queueItem.getQueuePosition()}, locale)).append("\n\n");
-        message.append(buildUnzipProgressMessage(unzipStep, queueItem.getSize(), lang, locale)).append("\n\n");
-        message.append(localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale));
-
-        return message.toString();
+    public String buildUnzipProgressMessage(UnzipQueueItem queueItem, UnzipStep unzipStep, Locale locale) {
+        return localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queueItem.getQueuePosition()}, locale) + "\n\n" +
+                buildUnzipProgressMessage(unzipStep, locale) + "\n\n" +
+                localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale);
     }
 
-    private String buildUnzipProgressMessage(UnzipStep unzipStep, long fileSize, Lang lang, Locale locale) {
-        String formatter = lang == Lang.JAVA ? "%s" : "{}";
-        String percentage = lang == Lang.JAVA ? "%%" : "%";
+    private String buildUnzipProgressMessage(UnzipStep unzipStep, Locale locale) {
         String iconCheck = localisationService.getMessage(MessagesProperties.ICON_CHECK, locale);
-        boolean progress = isShowingProgress(fileSize, unzipStep);
-        String percentageFormatter = progress ? "(" + formatter + percentage + ")..." : "...";
 
         switch (unzipStep) {
             case WAITING:
@@ -100,14 +75,11 @@ public class UnzipMessageBuilder {
                         "<b>" + localisationService.getMessage(MessagesProperties.DOWNLOADING_STEP, locale) + "</b>\n" +
                         "<b>" + localisationService.getMessage(MessagesProperties.UNZIPPING_STEP, locale) + "</b>";
             case DOWNLOADING:
-                return "<b>" + localisationService.getMessage(MessagesProperties.DOWNLOADING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
-                        (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " <b>" + formatter + "</b>\n" : "") +
-                        (progress ? localisationService.getMessage(MessagesProperties.MESSAGE_SPEED, locale) + " <b>" + formatter + "</b>\n" : "") +
+                return "<b>" + localisationService.getMessage(MessagesProperties.DOWNLOADING_STEP, locale) + "...</b>\n" +
                         "<b>" + localisationService.getMessage(MessagesProperties.UNZIPPING_STEP, locale) + "</b>";
             case UNZIPPING:
                 return "<b>" + localisationService.getMessage(MessagesProperties.DOWNLOADING_STEP, locale) + "</b> " + iconCheck + "\n" +
-                        "<b>" + localisationService.getMessage(MessagesProperties.UNZIPPING_STEP, locale) + " " + percentageFormatter + "...</b>\n" +
-                        localisationService.getMessage(MessagesProperties.MESSAGE_ETA, locale) + " " + formatter + "\n";
+                        "<b>" + localisationService.getMessage(MessagesProperties.UNZIPPING_STEP, locale) + "...</b>";
             default:
                 return "<b>" + localisationService.getMessage(MessagesProperties.DOWNLOADING_STEP, locale) + "</b> " + iconCheck + "\n" +
                         "<b>" + localisationService.getMessage(MessagesProperties.UNZIPPING_STEP, locale) + " </b>" + iconCheck + "\n";
@@ -157,20 +129,14 @@ public class UnzipMessageBuilder {
         ), limit, offset);
     }
 
-    private boolean isShowingProgress(long fileSize, ExtractFileStep extractFileStep) {
-        if (extractFileStep == ExtractFileStep.UPLOADING) {
-            return progressManager.isShowingUploadingProgress(fileSize);
+    @Override
+    public String getWaitingMessage(QueueItem queueItem, Locale locale) {
+        UnzipQueueItem unzipQueueItem = (UnzipQueueItem) queueItem;
+        if (unzipQueueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
+            return buildUnzipProgressMessage(UnzipStep.WAITING, locale);
+        } else {
+            return buildExtractFileProgressMessage(ExtractFileStep.WAITING, locale);
         }
-
-        return false;
-    }
-
-    private boolean isShowingProgress(long fileSize, UnzipStep unzipStep) {
-        if (unzipStep == UnzipStep.DOWNLOADING) {
-            return progressManager.isShowingDownloadingProgress(fileSize);
-        }
-
-        return false;
     }
 
     public static class FilesMessage {

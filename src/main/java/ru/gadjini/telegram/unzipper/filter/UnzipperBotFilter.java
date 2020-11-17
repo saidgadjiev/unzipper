@@ -2,8 +2,8 @@ package ru.gadjini.telegram.unzipper.filter;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.telegram.telegrambots.meta.api.objects.Update;
 import ru.gadjini.telegram.smart.bot.commons.filter.BaseBotFilter;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.Update;
 import ru.gadjini.telegram.unzipper.service.UnzipperBotService;
 
 @Component

@@ -4,10 +4,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.ReplyKeyboard;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.ReplyKeyboardMarkup;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.ReplyKeyboardRemove;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
+import ru.gadjini.telegram.smart.bot.commons.service.keyboard.ReplyKeyboardService;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 
 import java.util.ArrayList;
@@ -16,7 +16,7 @@ import java.util.Locale;
 
 @Service
 @Qualifier("keyboard")
-public class ReplyKeyboardServiceImpl implements UnzipBotReplyKeyboardService {
+public class ReplyKeyboardServiceImpl implements ReplyKeyboardService {
 
     private LocalisationService localisationService;
 
@@ -37,11 +37,6 @@ public class ReplyKeyboardServiceImpl implements UnzipBotReplyKeyboardService {
         replyKeyboardMarkup.getKeyboard().add(keyboardRow(localisationService.getMessage(MessagesProperties.GO_BACK_COMMAND_NAME, locale)));
 
         return replyKeyboardMarkup;
-    }
-
-    @Override
-    public ReplyKeyboardRemove removeKeyboard(long chatId) {
-        return new ReplyKeyboardRemove();
     }
 
     @Override

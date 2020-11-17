@@ -5,6 +5,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
+import org.telegram.telegrambots.meta.api.methods.ParseMode;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
+import org.telegram.telegrambots.meta.api.objects.Message;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import ru.gadjini.telegram.smart.bot.commons.command.api.BotCommand;
 import ru.gadjini.telegram.smart.bot.commons.command.api.CallbackBotCommand;
 import ru.gadjini.telegram.smart.bot.commons.command.api.NavigableBotCommand;
@@ -12,10 +17,6 @@ import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.smart.bot.commons.job.QueueJob;
 import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
 import ru.gadjini.telegram.smart.bot.commons.model.TgMessage;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.method.send.HtmlMessage;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.CallbackQuery;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.Message;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.ReplyKeyboard;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
 import ru.gadjini.telegram.smart.bot.commons.service.MessageMediaService;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
@@ -23,12 +24,12 @@ import ru.gadjini.telegram.smart.bot.commons.service.command.CommandStateService
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.smart.bot.commons.service.format.FormatCategory;
 import ru.gadjini.telegram.smart.bot.commons.service.format.FormatService;
+import ru.gadjini.telegram.smart.bot.commons.service.keyboard.ReplyKeyboardService;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.request.RequestParams;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.request.Arg;
-import ru.gadjini.telegram.unzipper.service.keyboard.UnzipBotReplyKeyboardService;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipService;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipState;
 
@@ -41,13 +42,13 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
 
     private UnzipService unzipService;
 
-    private QueueJob unzipperJob;
+    private QueueJob queueJob;
 
     private LocalisationService localisationService;
 
     private MessageService messageService;
 
-    private UnzipBotReplyKeyboardService replyKeyboardService;
+    private ReplyKeyboardService replyKeyboardService;
 
     private UserService userService;
 
@@ -59,13 +60,13 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
 
     @Autowired
     public StartCommand(LocalisationService localisationService, UnzipService unzipService,
-                        QueueJob unzipperJob, @Qualifier("messageLimits") MessageService messageService,
-                        @Qualifier("curr") UnzipBotReplyKeyboardService replyKeyboardService,
+                        QueueJob queueJob, @Qualifier("messageLimits") MessageService messageService,
+                        @Qualifier("curr") ReplyKeyboardService replyKeyboardService,
                         UserService userService, FormatService formatService, MessageMediaService fileService,
                         CommandStateService commandStateService) {
         this.localisationService = localisationService;
         this.unzipService = unzipService;
-        this.unzipperJob = unzipperJob;
+        this.queueJob = queueJob;
         this.messageService = messageService;
         this.replyKeyboardService = replyKeyboardService;
         this.userService = userService;
@@ -92,8 +93,10 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
     @Override
     public void processMessage(Message message, String[] params) {
         Locale locale = userService.getLocaleOrDefault(message.getFrom().getId());
-        messageService.sendMessage(new HtmlMessage(message.getChatId(), localisationService.getMessage(MessagesProperties.MESSAGE_ZIP_FILE, locale))
-                .setReplyMarkup(replyKeyboardService.removeKeyboard(message.getChatId())));
+        messageService.sendMessage(SendMessage.builder().chatId(String.valueOf(message.getChatId()))
+                .text(localisationService.getMessage(MessagesProperties.MESSAGE_ZIP_FILE, locale))
+                .replyMarkup(replyKeyboardService.removeKeyboard(message.getChatId()))
+                .parseMode(ParseMode.HTML).build());
     }
 
     @Override
@@ -108,10 +111,10 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
         MessageMedia file = fileService.getMedia(message, locale);
         file.setFormat(checkFormat(message.getFrom().getId(), format, message.getDocument().getMimeType(), message.getDocument().getFileName(), locale));
 
-        unzipperJob.removeAndCancelCurrentTasks(message.getChatId());
+        queueJob.removeAndCancelCurrentTasks(message.getChatId());
         UnzipState unzipState = createState(file.getFormat());
         commandStateService.setState(message.getChatId(), UnzipCommandNames.START_COMMAND_NAME, unzipState);
-        unzipService.unzip(message.getFrom().getId(), message.getMessageId(), file, locale);
+        unzipService.unzip(message.getFrom().getId(), file, locale);
     }
 
     @Override
@@ -141,8 +144,10 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
     public void restore(TgMessage message) {
         commandStateService.deleteState(message.getChatId(), getHistoryName());
         Locale locale = userService.getLocaleOrDefault(message.getUser().getId());
-        messageService.sendMessage(new HtmlMessage(message.getChatId(), localisationService.getMessage(MessagesProperties.MESSAGE_MAIN_MENU, locale))
-                .setReplyMarkup(replyKeyboardService.getMainMenu(message.getChatId(), locale)));
+        messageService.sendMessage(SendMessage.builder().chatId(String.valueOf(message.getChatId()))
+                .text(localisationService.getMessage(MessagesProperties.MESSAGE_MAIN_MENU, locale))
+                .replyMarkup(replyKeyboardService.getMainMenu(message.getChatId(), locale))
+                .parseMode(ParseMode.HTML).build());
     }
 
     @Override

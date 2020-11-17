@@ -3,9 +3,10 @@ package ru.gadjini.telegram.unzipper.service.keyboard;
 import com.google.common.collect.Lists;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import ru.gadjini.telegram.smart.bot.commons.service.keyboard.SmartButtonFactory;
 import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.buttons.InlineKeyboardButton;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,9 +19,12 @@ public class InlineKeyboardService {
 
     private ButtonFactory buttonFactory;
 
+    private SmartButtonFactory smartButtonFactory;
+
     @Autowired
-    public InlineKeyboardService(ButtonFactory buttonFactory) {
+    public InlineKeyboardService(ButtonFactory buttonFactory, SmartButtonFactory smartButtonFactory) {
         this.buttonFactory = buttonFactory;
+        this.smartButtonFactory = smartButtonFactory;
     }
 
     public InlineKeyboardMarkup getFilesListKeyboard(Set<Integer> filesIds, int limit, int prevLimit, int offset, int unzipJobId, Locale locale) {
@@ -52,10 +56,28 @@ public class InlineKeyboardService {
         return inlineKeyboardMarkup;
     }
 
+    public InlineKeyboardMarkup getUnzipWaitingKeyboard(int jobId, Locale locale) {
+        InlineKeyboardMarkup inlineKeyboardMarkup = inlineKeyboardMarkup();
+
+        inlineKeyboardMarkup.getKeyboard().add(List.of(smartButtonFactory.updateQueryStatus(jobId, locale)));
+        inlineKeyboardMarkup.getKeyboard().add(List.of(smartButtonFactory.cancelQueryItem(jobId, locale)));
+
+        return inlineKeyboardMarkup;
+    }
+
     public InlineKeyboardMarkup getUnzipProcessingKeyboard(int jobId, Locale locale) {
         InlineKeyboardMarkup inlineKeyboardMarkup = inlineKeyboardMarkup();
 
-        inlineKeyboardMarkup.getKeyboard().add(List.of(buttonFactory.cancelUnzipQuery(jobId, locale)));
+        inlineKeyboardMarkup.getKeyboard().add(List.of(smartButtonFactory.cancelQueryItem(jobId, locale)));
+
+        return inlineKeyboardMarkup;
+    }
+
+    public InlineKeyboardMarkup getExtractFileWaitingKeyboard(int jobId, Locale locale) {
+        InlineKeyboardMarkup inlineKeyboardMarkup = inlineKeyboardMarkup();
+
+        inlineKeyboardMarkup.getKeyboard().add(List.of(smartButtonFactory.updateQueryStatus(jobId, locale)));
+        inlineKeyboardMarkup.getKeyboard().add(List.of(smartButtonFactory.cancelQueryItem(jobId, locale)));
 
         return inlineKeyboardMarkup;
     }
@@ -63,7 +85,7 @@ public class InlineKeyboardService {
     public InlineKeyboardMarkup getExtractFileProcessingKeyboard(int jobId, Locale locale) {
         InlineKeyboardMarkup inlineKeyboardMarkup = inlineKeyboardMarkup();
 
-        inlineKeyboardMarkup.getKeyboard().add(List.of(buttonFactory.cancelExtractFileQuery(jobId, locale)));
+        inlineKeyboardMarkup.getKeyboard().add(List.of(smartButtonFactory.cancelQueryItem(jobId, locale)));
 
         return inlineKeyboardMarkup;
     }

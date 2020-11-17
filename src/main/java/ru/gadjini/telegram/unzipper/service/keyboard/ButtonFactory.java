@@ -2,13 +2,13 @@ package ru.gadjini.telegram.unzipper.service.keyboard;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import ru.gadjini.telegram.smart.bot.commons.common.CommandNames;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
 import ru.gadjini.telegram.smart.bot.commons.service.command.CommandParser;
 import ru.gadjini.telegram.smart.bot.commons.service.request.RequestParams;
-import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.buttons.InlineKeyboardButton;
+import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.request.Arg;
 
 import java.util.Locale;
@@ -45,22 +45,6 @@ public class ButtonFactory {
                         .add(Arg.PAGINATION.getKey(), true)
                         .add(Arg.CALLBACK_DELEGATE.getKey(), delegate)
                         .serialize(CommandParser.COMMAND_ARG_SEPARATOR));
-
-        return button;
-    }
-
-    public InlineKeyboardButton cancelUnzipQuery(int jobId, Locale locale) {
-        InlineKeyboardButton button = new InlineKeyboardButton(localisationService.getMessage(MessagesProperties.CANCEL_COMMAND_DESCRIPTION, locale));
-        button.setCallbackData(UnzipCommandNames.CANCEL_UNZIP_QUERY + CommandParser.COMMAND_NAME_SEPARATOR +
-                new RequestParams().add(Arg.JOB_ID.getKey(), jobId).serialize(CommandParser.COMMAND_ARG_SEPARATOR));
-
-        return button;
-    }
-
-    public InlineKeyboardButton cancelExtractFileQuery(int jobId, Locale locale) {
-        InlineKeyboardButton button = new InlineKeyboardButton(localisationService.getMessage(MessagesProperties.CANCEL_COMMAND_DESCRIPTION, locale));
-        button.setCallbackData(UnzipCommandNames.CANCEL_EXTRACT_FILE + CommandParser.COMMAND_NAME_SEPARATOR +
-                new RequestParams().add(Arg.JOB_ID.getKey(), jobId).serialize(CommandParser.COMMAND_ARG_SEPARATOR));
 
         return button;
     }

@@ -23,8 +23,6 @@ public class MessagesProperties {
 
     public static final String MESSAGE_ZIP_INVALID = "message.zip.invalid";
 
-    public static final String CANCEL_COMMAND_DESCRIPTION = "cancel.command.description";
-
     public static final String UNZIP_COMMAND_DESCRIPTION = "unzip.command.description";
 
     public static final String LANGUAGE_COMMAND_DESCRIPTION = "language.command.description";
@@ -36,8 +34,6 @@ public class MessagesProperties {
     public static final String MESSAGE_UNZIP_PROCESSING_ANSWER = "message.unzip.processing.answer";
 
     public static final String EXTRACT_ALL_COMMAND_DESCRIPTION = "extract.all.command.description";
-
-    public static final String MESSAGE_EXTRACT_FILE_ERROR = "message.extract.file.error";
 
     public static final String MESSAGE_UNZIP_ERROR = "message.unzip.error";
 
@@ -51,8 +47,6 @@ public class MessagesProperties {
 
     public static final String ICON_CHECK = "icon.check";
 
-    public static final String MESSAGE_ETA = "message.eta";
-
     public static final String UNZIPPING_STEP = "unzipping.step";
 
     public static final String WAITING_STEP = "waiting.step";
@@ -60,8 +54,6 @@ public class MessagesProperties {
     public static final String EXTRACTING_STEP = "extracting.step";
 
     public static final String MESSAGE_EXTRACTING_ALL = "message.extracting.all";
-
-    public static final String MESSAGE_SPEED = "message.speed";
 
     public static final String MESSAGE_FILE_QUEUED = "message.file.queued";
 

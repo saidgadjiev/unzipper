@@ -2,35 +2,36 @@ package ru.gadjini.telegram.unzipper.service.keyboard;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 import ru.gadjini.telegram.smart.bot.commons.dao.command.keyboard.ReplyKeyboardDao;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.ReplyKeyboard;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.ReplyKeyboardMarkup;
-import ru.gadjini.telegram.smart.bot.commons.model.bot.api.object.replykeyboard.ReplyKeyboardRemove;
+import ru.gadjini.telegram.smart.bot.commons.service.keyboard.ReplyKeyboardService;
 
 import java.util.Locale;
 
 @Service
 @Qualifier("curr")
-public class CurrReplyKeyboard implements UnzipBotReplyKeyboardService {
+public class CurrReplyKeyboard implements ReplyKeyboardService {
 
     private ReplyKeyboardDao replyKeyboardDao;
 
-    private UnzipBotReplyKeyboardService keyboardService;
+    private ReplyKeyboardService keyboardService;
 
-    public CurrReplyKeyboard(@Qualifier("inMemory") ReplyKeyboardDao replyKeyboardDao, @Qualifier("keyboard") UnzipBotReplyKeyboardService keyboardService) {
+    public CurrReplyKeyboard(@Qualifier("inMemory") ReplyKeyboardDao replyKeyboardDao, @Qualifier("keyboard") ReplyKeyboardService keyboardService) {
         this.replyKeyboardDao = replyKeyboardDao;
         this.keyboardService = keyboardService;
     }
 
     @Override
     public ReplyKeyboardMarkup languageKeyboard(long chatId, Locale locale) {
-        return setCurrentKeyboard(chatId, (ReplyKeyboardMarkup) keyboardService.languageKeyboard(chatId, locale));
+        return setCurrentKeyboard(chatId, keyboardService.languageKeyboard(chatId, locale));
     }
 
     @Override
     public ReplyKeyboardRemove removeKeyboard(long chatId) {
         ReplyKeyboardRemove replyKeyboardRemove = keyboardService.removeKeyboard(chatId);
-        setCurrentKeyboard(chatId, new ReplyKeyboardMarkup());
+        setCurrentKeyboard(chatId, replyKeyboardMarkup());
 
         return replyKeyboardRemove;
     }
