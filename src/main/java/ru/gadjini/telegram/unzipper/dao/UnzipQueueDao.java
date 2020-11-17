@@ -8,6 +8,7 @@ import ru.gadjini.telegram.smart.bot.commons.dao.QueueDaoDelegate;
 import ru.gadjini.telegram.smart.bot.commons.domain.QueueItem;
 import ru.gadjini.telegram.smart.bot.commons.domain.TgFile;
 import ru.gadjini.telegram.smart.bot.commons.property.FileLimitProperties;
+import ru.gadjini.telegram.smart.bot.commons.property.QueueProperties;
 import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.smart.bot.commons.utils.JdbcUtils;
@@ -27,10 +28,13 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
 
     private FileLimitProperties fileLimitProperties;
 
+    private QueueProperties queueProperties;
+
     @Autowired
-    public UnzipQueueDao(JdbcTemplate jdbcTemplate, FileLimitProperties fileLimitProperties) {
+    public UnzipQueueDao(JdbcTemplate jdbcTemplate, FileLimitProperties fileLimitProperties, QueueProperties queueProperties) {
         this.jdbcTemplate = jdbcTemplate;
         this.fileLimitProperties = fileLimitProperties;
+        this.queueProperties = queueProperties;
     }
 
     public int create(UnzipQueueItem unzipQueueItem) {
@@ -119,15 +123,16 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
                 "WITH r AS (\n" +
                         "    UPDATE unzip_queue SET status = 1, last_run_at = now(), started_at = COALESCE(started_at, now())" +
                         " WHERE id IN (SELECT id FROM unzip_queue " +
-                        "WHERE status = 0 AND CASE WHEN item_type = 0 THEN " +
+                        "WHERE status = 0 AND attempts < ? AND CASE WHEN item_type = 0 THEN " +
                         "(file).size " + sign + " ? ELSE " +
                         "extract_file_size " + sign + " ? END ORDER BY created_at LIMIT " + limit + ") RETURNING *\n" +
                         ")\n" +
                         "SELECT *, (file).*, 1 as queue_position\n" +
                         "FROM r",
                 ps -> {
-                    ps.setLong(1, fileLimitProperties.getLightFileMaxWeight());
+                    ps.setLong(1, queueProperties.getMaxAttempts());
                     ps.setLong(2, fileLimitProperties.getLightFileMaxWeight());
+                    ps.setLong(3, fileLimitProperties.getLightFileMaxWeight());
                 },
                 (rs, rowNum) -> map(rs)
         );
