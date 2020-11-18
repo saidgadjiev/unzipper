@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
+import ru.gadjini.telegram.smart.bot.commons.dao.QueueDao;
 import ru.gadjini.telegram.smart.bot.commons.dao.QueueDaoDelegate;
 import ru.gadjini.telegram.smart.bot.commons.domain.QueueItem;
 import ru.gadjini.telegram.smart.bot.commons.domain.TgFile;
@@ -121,11 +122,11 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
 
         return jdbcTemplate.query(
                 "WITH r AS (\n" +
-                        "    UPDATE unzip_queue SET status = 1, attempts = attempts + 1, last_run_at = now(), started_at = COALESCE(started_at, now())" +
-                        " WHERE id IN (SELECT id FROM unzip_queue " +
+                        "    UPDATE unzip_queue SET " + QueueDao.POLL_UPDATE_LIST +
+                        " WHERE id IN (SELECT id FROM unzip_queue qu " +
                         "WHERE status = 0 AND attempts < ? AND CASE WHEN item_type = 0 THEN " +
                         "(file).size " + sign + " ? ELSE " +
-                        "extract_file_size " + sign + " ? END ORDER BY created_at LIMIT " + limit + ") RETURNING *\n" +
+                        "extract_file_size " + sign + " ? END " + QueueDao.POLL_ORDER_BY + " LIMIT " + limit + ") RETURNING *\n" +
                         ")\n" +
                         "SELECT *, (file).*, 1 as queue_position\n" +
                         "FROM r",
