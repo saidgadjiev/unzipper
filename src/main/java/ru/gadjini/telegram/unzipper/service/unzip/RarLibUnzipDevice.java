@@ -20,7 +20,7 @@ public class RarLibUnzipDevice extends BaseUnzipDevice {
         super(Set.of(Format.RAR));
     }
 
-    public void unzip(int userId, String in, String out) {
+    public void unzip(int userId, String in, String out, String password) {
         try {
             Junrar.extract(new File(in), new File(out));
         } catch (Exception e) {

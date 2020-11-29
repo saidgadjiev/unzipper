@@ -40,6 +40,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 @Component
 public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueItem> {
 
+    private static final String DEFAULT_PASSWORD = "no";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(UnzipQueueWorkerFactory.class);
 
     private Set<UnzipDevice> unzipDevices;
@@ -204,7 +206,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
             }
             unzipState.setArchivePath(zipFile);
             unzipState.setUnzipJobId(item.getId());
-            List<ZipFileHeader> zipFiles = unzipDevice.getZipFiles(zipFile);
+            List<ZipFileHeader> zipFiles = unzipDevice.getZipFiles(zipFile, DEFAULT_PASSWORD);
             int i = 1;
             for (ZipFileHeader file : zipFiles) {
                 unzipState.getFiles().put(i++, file);
@@ -249,7 +251,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
                 } else {
                     SmartTempFile file = fileService.createTempFile(item.getUserId(), TAG, FilenameUtils.getExtension(entry.getValue().getPath()));
                     files.add(file);
-                    unzipDevice.unzip(entry.getValue().getPath(), unzipState.getArchivePath(), file.getAbsolutePath());
+                    unzipDevice.unzip(entry.getValue().getPath(), unzipState.getArchivePath(), file.getAbsolutePath(), DEFAULT_PASSWORD);
 
                     String fileName = FilenameUtils.getName(entry.getValue().getPath());
                     SendDocument sendDocument = SendDocument.builder().chatId(String.valueOf(item.getUserId()))
@@ -302,7 +304,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
 
             UnzipDevice unzipDevice = getCandidate(unzipState.getArchiveType());
             out = fileService.createTempFile(item.getUserId(), TAG, FilenameUtils.getExtension(fileHeader.getPath()));
-            unzipDevice.unzip(fileHeader.getPath(), unzipState.getArchivePath(), out.getAbsolutePath());
+            unzipDevice.unzip(fileHeader.getPath(), unzipState.getArchivePath(), out.getAbsolutePath(), DEFAULT_PASSWORD);
 
             String fileName = FilenameUtils.getName(fileHeader.getPath());
             SendDocument sendDocument = SendDocument.builder().chatId(String.valueOf(item.getUserId()))

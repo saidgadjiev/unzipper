@@ -9,13 +9,13 @@ import java.util.List;
 
 public interface UnzipDevice {
 
-    void unzip(int userId, String in, String out);
+    void unzip(int userId, String in, String out, String password);
 
-    default List<ZipFileHeader> getZipFiles(String zipFile) {
+    default List<ZipFileHeader> getZipFiles(String zipFile, String password) {
         return Collections.emptyList();
     }
 
-    default void unzip(String fileHeader, String archivePath, String out) throws IOException {
+    default void unzip(String fileHeader, String archivePath, String out, String password) throws IOException {
     }
 
     boolean accept(Format zipFormat);

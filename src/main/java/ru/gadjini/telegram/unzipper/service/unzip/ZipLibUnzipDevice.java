@@ -41,7 +41,7 @@ public class ZipLibUnzipDevice extends BaseUnzipDevice {
         this.userService = userService;
     }
 
-    public void unzip(int userId, String in, String out) {
+    public void unzip(int userId, String in, String out, String password) {
         try {
             ZipFile zipFile = checkZip(new ZipFile(in), userService.getLocaleOrDefault(userId));
             zipFile.extractAll(out);
@@ -51,7 +51,7 @@ public class ZipLibUnzipDevice extends BaseUnzipDevice {
     }
 
     @Override
-    public List<ZipFileHeader> getZipFiles(String zipFile) {
+    public List<ZipFileHeader> getZipFiles(String zipFile, String password) {
         ZipFile zip = new ZipFile(zipFile);
         try {
             List<FileHeader> fileHeaders = zip.getFileHeaders().stream().filter(fileHeader -> !fileHeader.isDirectory()).collect(Collectors.toList());
@@ -63,7 +63,7 @@ public class ZipLibUnzipDevice extends BaseUnzipDevice {
     }
 
     @Override
-    public void unzip(String fileHeader, String archivePath, String out) {
+    public void unzip(String fileHeader, String archivePath, String out, String password) {
         throw new UnsupportedOperationException();
     }
 
