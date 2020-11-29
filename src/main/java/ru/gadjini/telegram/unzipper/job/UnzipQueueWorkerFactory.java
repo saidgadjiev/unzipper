@@ -1,5 +1,6 @@
 package ru.gadjini.telegram.unzipper.job;
 
+import com.google.gson.JsonPrimitive;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,12 +13,11 @@ import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
 import ru.gadjini.telegram.smart.bot.commons.model.Progress;
-import ru.gadjini.telegram.smart.bot.commons.model.SendFileResult;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
 import ru.gadjini.telegram.smart.bot.commons.service.TempFileService;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
 import ru.gadjini.telegram.smart.bot.commons.service.command.CommandStateService;
-import ru.gadjini.telegram.smart.bot.commons.service.file.FileManager;
+import ru.gadjini.telegram.smart.bot.commons.service.file.FileUploadService;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MediaMessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
@@ -29,7 +29,10 @@ import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
 import ru.gadjini.telegram.unzipper.service.keyboard.InlineKeyboardService;
-import ru.gadjini.telegram.unzipper.service.unzip.*;
+import ru.gadjini.telegram.unzipper.service.unzip.ExtractFileStep;
+import ru.gadjini.telegram.unzipper.service.unzip.UnzipDevice;
+import ru.gadjini.telegram.unzipper.service.unzip.UnzipMessageBuilder;
+import ru.gadjini.telegram.unzipper.service.unzip.UnzipState;
 
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -47,7 +50,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
 
     private MediaMessageService mediaMessageService;
 
-    private FileManager fileManager;
+    private FileUploadService fileUploadService;
 
     private TempFileService fileService;
 
@@ -62,19 +65,23 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
     @Autowired
     public UnzipQueueWorkerFactory(Set<UnzipDevice> unzipDevices,
                                    LocalisationService localisationService, @Qualifier("messageLimits") MessageService messageService,
-                                   @Qualifier("forceMedia") MediaMessageService mediaMessageService, FileManager fileManager,
+                                   @Qualifier("forceMedia") MediaMessageService mediaMessageService,
                                    TempFileService fileService, UserService userService, CommandStateService commandStateService,
                                    InlineKeyboardService inlineKeyboardService, UnzipMessageBuilder messageBuilder) {
         this.unzipDevices = unzipDevices;
         this.localisationService = localisationService;
         this.messageService = messageService;
         this.mediaMessageService = mediaMessageService;
-        this.fileManager = fileManager;
         this.fileService = fileService;
         this.userService = userService;
         this.commandStateService = commandStateService;
         this.inlineKeyboardService = inlineKeyboardService;
         this.messageBuilder = messageBuilder;
+    }
+
+    @Autowired
+    public void setFileUploadService(FileUploadService fileUploadService) {
+        this.fileUploadService = fileUploadService;
     }
 
     @Override
@@ -91,7 +98,6 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
     private Progress extractAllProgress(UnzipQueueItem queueItem, int count, int current) {
         Locale locale = userService.getLocaleOrDefault(queueItem.getUserId());
         Progress progress = new Progress();
-        progress.setLocale(locale.getLanguage());
         progress.setChatId(queueItem.getUserId());
         progress.setProgressMessageId(queueItem.getProgressMessageId());
         progress.setProgressMessage(messageBuilder.buildExtractAllProgressMessage(count, current, ExtractFileStep.UPLOADING,
@@ -112,28 +118,10 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
     private Progress extractFileProgress(UnzipQueueItem queueItem) {
         Locale locale = userService.getLocaleOrDefault(queueItem.getUserId());
         Progress progress = new Progress();
-        progress.setLocale(locale.getLanguage());
         progress.setChatId(queueItem.getUserId());
         progress.setProgressMessageId(queueItem.getProgressMessageId());
         progress.setProgressMessage(messageBuilder.buildExtractFileProgressMessage(queueItem, ExtractFileStep.UPLOADING, locale));
         progress.setProgressReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(queueItem.getId(), locale));
-
-        return progress;
-    }
-
-    private Progress unzipProgress(UnzipQueueItem item) {
-        Locale locale = userService.getLocaleOrDefault(item.getUserId());
-        Progress progress = new Progress();
-        progress.setLocale(locale.getLanguage());
-        progress.setChatId(item.getUserId());
-        progress.setProgressMessageId(item.getProgressMessageId());
-        progress.setProgressMessage(messageBuilder.buildUnzipProgressMessage(item, UnzipStep.DOWNLOADING, locale));
-
-        String completionMessage = messageBuilder.buildUnzipProgressMessage(item, UnzipStep.UNZIPPING, locale);
-        String seconds = localisationService.getMessage(MessagesProperties.SECOND_PART, locale);
-        progress.setAfterProgressCompletionMessage(String.format(completionMessage, 50, "10 " + seconds));
-        progress.setAfterProgressCompletionReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(item.getId(), locale));
-        progress.setProgressReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(item.getId(), locale));
 
         return progress;
     }
@@ -162,18 +150,17 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
 
     public class UnzipQueueWorker implements QueueWorker {
 
-        private static final String TAG = "unzip";
-
         private final Logger LOGGER = LoggerFactory.getLogger(UnzipQueueWorker.class);
 
         private UnzipDevice unzipDevice;
 
         private final UnzipQueueItem item;
 
-        private volatile SmartTempFile in;
+        private final SmartTempFile in;
 
         private UnzipQueueWorker(UnzipQueueItem item) {
             this.unzipDevice = getCandidate(item.getType());
+            this.in = item.getDownloadedFile();
             this.item = item;
         }
 
@@ -181,8 +168,6 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
         public void execute() {
             String size = MemoryUtils.humanReadableByteCount(item.getSize());
             LOGGER.debug("Start({}, {}, {}, {})", item.getUserId(), size, item.getFile().getFormat(), item.getFile().getFileId());
-            in = fileService.createTempFile(item.getUserId(), item.getFile().getFileId(), TAG, item.getFile().getFormat().getExt());
-            fileManager.downloadFileByFileId(item.getFile().getFileId(), item.getSize(), unzipProgress(item), in);
             UnzipState unzipState = initAndGetState(in.getAbsolutePath());
             if (unzipState == null) {
                 return;
@@ -202,9 +187,6 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
 
         @Override
         public void cancel() {
-            if (!fileManager.cancelDownloading(item.getFile().getFileId(), item.getSize()) && in != null) {
-                in.smartDelete();
-            }
             commandStateService.deleteState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME);
         }
 
@@ -236,8 +218,6 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
 
         private static final String TAG = "extractall";
 
-        private static final int SLEEP_TIME = 4000;
-
         private UnzipQueueItem item;
 
         private Queue<SmartTempFile> files = new LinkedBlockingQueue<>();
@@ -255,8 +235,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
             UnzipDevice unzipDevice = getCandidate(unzipState.getArchiveType());
 
             int i = 1;
-            for (Iterator<Map.Entry<Integer, ZipFileHeader>> iterator = unzipState.getFiles().entrySet().iterator(); iterator.hasNext(); ) {
-                Map.Entry<Integer, ZipFileHeader> entry = iterator.next();
+            for (Map.Entry<Integer, ZipFileHeader> entry : unzipState.getFiles().entrySet()) {
                 if (unzipState.getFilesCache().containsKey(entry.getKey())) {
                     mediaMessageService.sendFile(item.getUserId(), unzipState.getFilesCache().get(entry.getKey()));
                     String message = messageBuilder.buildExtractAllProgressMessage(unzipState.getFiles().size(), i + 1,
@@ -273,17 +252,11 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
                     unzipDevice.unzip(entry.getValue().getPath(), unzipState.getArchivePath(), file.getAbsolutePath());
 
                     String fileName = FilenameUtils.getName(entry.getValue().getPath());
-                    SendFileResult result = mediaMessageService.sendDocument(SendDocument.builder().chatId(String.valueOf(item.getUserId()))
+                    SendDocument sendDocument = SendDocument.builder().chatId(String.valueOf(item.getUserId()))
                             .document(new InputFile(file.getFile(), fileName))
-                            .caption(fileName).build(), extractAllProgress(item, unzipState.getFiles().size(), i));
-                    if (result != null) {
-                        unzipState.getFilesCache().put(entry.getKey(), result.getFileId());
-                        commandStateService.setState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, unzipState);
-                    }
-                }
-
-                if (iterator.hasNext()) {
-                    Thread.sleep(SLEEP_TIME);
+                            .caption(fileName).build();
+                    fileUploadService.createUpload(item.getUserId(), SendDocument.PATH, sendDocument,
+                            extractAllProgress(item, unzipState.getFiles().size(), i), item.getId(), new JsonPrimitive(entry.getKey()));
                 }
 
                 ++i;
@@ -300,11 +273,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
 
         @Override
         public void cancel() {
-            files.forEach(smartTempFile -> {
-                if (!fileManager.cancelUploading(smartTempFile.getAbsolutePath())) {
-                    smartTempFile.smartDelete();
-                }
-            });
+            files.forEach(SmartTempFile::smartDelete);
         }
     }
 
@@ -336,13 +305,11 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
             unzipDevice.unzip(fileHeader.getPath(), unzipState.getArchivePath(), out.getAbsolutePath());
 
             String fileName = FilenameUtils.getName(fileHeader.getPath());
-            SendFileResult result = mediaMessageService.sendDocument(SendDocument.builder().chatId(String.valueOf(item.getUserId()))
+            SendDocument sendDocument = SendDocument.builder().chatId(String.valueOf(item.getUserId()))
                     .document(new InputFile(out.getFile(), fileName))
-                    .caption(fileName).build(), extractFileProgress(item));
-            if (result != null) {
-                unzipState.getFilesCache().put(item.getExtractFileId(), result.getFileId());
-                commandStateService.setState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, unzipState);
-            }
+                    .caption(fileName).build();
+            fileUploadService.createUpload(item.getUserId(), SendDocument.PATH, sendDocument, extractFileProgress(item),
+                    item.getId(), new JsonPrimitive(item.getExtractFileId()));
             LOGGER.debug("Finish({}, {})", item.getUserId(), size);
         }
 
@@ -357,7 +324,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
 
         @Override
         public void cancel() {
-            if (out != null && !fileManager.cancelUploading(out.getAbsolutePath())) {
+            if (out != null) {
                 out.smartDelete();
             }
         }

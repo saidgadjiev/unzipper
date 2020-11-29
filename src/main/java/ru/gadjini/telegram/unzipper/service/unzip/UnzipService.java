@@ -14,13 +14,15 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.smart.bot.commons.exception.botapi.TelegramApiException;
 import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
+import ru.gadjini.telegram.smart.bot.commons.model.Progress;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
 import ru.gadjini.telegram.smart.bot.commons.service.command.CommandStateService;
+import ru.gadjini.telegram.smart.bot.commons.service.file.FileDownloadService;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MediaMessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
-import ru.gadjini.telegram.smart.bot.commons.service.queue.QueueService;
+import ru.gadjini.telegram.smart.bot.commons.service.queue.WorkQueueService;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
@@ -47,7 +49,7 @@ public class UnzipService {
 
     private UnzipQueueService unzipQueueService;
 
-    private QueueService queueService;
+    private WorkQueueService queueService;
 
     private UserService userService;
 
@@ -57,11 +59,13 @@ public class UnzipService {
 
     private UnzipMessageBuilder messageBuilder;
 
+    private FileDownloadService fileDownloadService;
+
     @Autowired
     public UnzipService(Set<UnzipDevice> unzipDevices, LocalisationService localisationService,
                         @Qualifier("messageLimits") MessageService messageService,
                         @Qualifier("mediaLimits") MediaMessageService mediaMessageService,
-                        UnzipQueueService unzipQueueService, QueueService queueService, UserService userService,
+                        UnzipQueueService unzipQueueService, WorkQueueService queueService, UserService userService,
                         CommandStateService commandStateService, InlineKeyboardService inlineKeyboardService,
                         UnzipMessageBuilder messageBuilder) {
         this.unzipDevices = unzipDevices;
@@ -74,6 +78,11 @@ public class UnzipService {
         this.commandStateService = commandStateService;
         this.inlineKeyboardService = inlineKeyboardService;
         this.messageBuilder = messageBuilder;
+    }
+
+    @Autowired
+    public void setFileDownloadService(FileDownloadService fileDownloadService) {
+        this.fileDownloadService = fileDownloadService;
     }
 
     public void extractAll(int userId, int messageId, int unzipJobId, String queryId) {
@@ -163,6 +172,9 @@ public class UnzipService {
         sendStartUnzippingMessage(queueItem, locale, message -> {
             queueItem.setProgressMessageId(message.getMessageId());
             queueService.setProgressMessageId(queueItem.getId(), message.getMessageId());
+
+            queueItem.getFile().setProgress(unzipProgress(queueItem));
+            fileDownloadService.createDownload(queueItem.getFile(), queueItem.getId(), queueItem.getUserId());
         });
     }
 
@@ -198,5 +210,21 @@ public class UnzipService {
 
         LOGGER.warn("Candidate not found({})", format);
         throw new UserException(localisationService.getMessage(MessagesProperties.MESSAGE_SUPPORTED_ZIP_FORMATS, locale));
+    }
+
+    private Progress unzipProgress(UnzipQueueItem item) {
+        Locale locale = userService.getLocaleOrDefault(item.getUserId());
+        Progress progress = new Progress();
+        progress.setChatId(item.getUserId());
+        progress.setProgressMessageId(item.getProgressMessageId());
+        progress.setProgressMessage(messageBuilder.buildUnzipProgressMessage(item, UnzipStep.DOWNLOADING, locale));
+
+        String completionMessage = messageBuilder.buildUnzipProgressMessage(item, UnzipStep.UNZIPPING, locale);
+        String seconds = localisationService.getMessage(MessagesProperties.SECOND_PART, locale);
+        progress.setAfterProgressCompletionMessage(String.format(completionMessage, 50, "10 " + seconds));
+        progress.setAfterProgressCompletionReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(item.getId(), locale));
+        progress.setProgressReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(item.getId(), locale));
+
+        return progress;
     }
 }

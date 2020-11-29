@@ -18,8 +18,8 @@ import java.util.TimeZone;
         BotProperties.class,
         BotApiProperties.class,
         FileLimitProperties.class,
-        QueueProperties.class,
-        FloodControlProperties.class
+        FloodControlProperties.class,
+        FileManagerProperties.class
 })
 @EnableScheduling
 @SpringBootApplication

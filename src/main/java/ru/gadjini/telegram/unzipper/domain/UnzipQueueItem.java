@@ -1,12 +1,15 @@
 package ru.gadjini.telegram.unzipper.domain;
 
-import ru.gadjini.telegram.smart.bot.commons.domain.QueueItem;
+import ru.gadjini.telegram.smart.bot.commons.domain.DownloadQueueItem;
 import ru.gadjini.telegram.smart.bot.commons.domain.TgFile;
+import ru.gadjini.telegram.smart.bot.commons.domain.WorkQueueItem;
+import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 
+import java.io.File;
 import java.util.Set;
 
-public class UnzipQueueItem extends QueueItem {
+public class UnzipQueueItem extends WorkQueueItem {
 
     public static final String NAME = "unzip_queue";
 
@@ -20,6 +23,8 @@ public class UnzipQueueItem extends QueueItem {
 
     public static final String EXTRACT_FILE_SIZE = "extract_file_size";
 
+    public static final String DOWNLOADS = "downloads";
+
     private TgFile file;
 
     private Format type;
@@ -29,6 +34,8 @@ public class UnzipQueueItem extends QueueItem {
     private int extractFileId;
 
     private long extractFileSize;
+
+    private DownloadQueueItem download;
 
     public TgFile getFile() {
         return file;
@@ -68,6 +75,18 @@ public class UnzipQueueItem extends QueueItem {
 
     public void setExtractFileSize(long extractFileSize) {
         this.extractFileSize = extractFileSize;
+    }
+
+    public DownloadQueueItem getDownload() {
+        return download;
+    }
+
+    public void setDownload(DownloadQueueItem download) {
+        this.download = download;
+    }
+
+    public SmartTempFile getDownloadedFile() {
+        return download == null ? null : new SmartTempFile(new File(download.getFilePath()), download.isDeleteParentDir());
     }
 
     @Override

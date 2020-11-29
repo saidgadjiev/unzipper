@@ -1,15 +1,19 @@
 package ru.gadjini.telegram.unzipper.dao;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.postgresql.util.PGobject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 import ru.gadjini.telegram.smart.bot.commons.dao.QueueDao;
-import ru.gadjini.telegram.smart.bot.commons.dao.QueueDaoDelegate;
+import ru.gadjini.telegram.smart.bot.commons.dao.WorkQueueDaoDelegate;
+import ru.gadjini.telegram.smart.bot.commons.domain.DownloadQueueItem;
 import ru.gadjini.telegram.smart.bot.commons.domain.QueueItem;
 import ru.gadjini.telegram.smart.bot.commons.domain.TgFile;
 import ru.gadjini.telegram.smart.bot.commons.property.FileLimitProperties;
-import ru.gadjini.telegram.smart.bot.commons.property.QueueProperties;
 import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.smart.bot.commons.utils.JdbcUtils;
@@ -19,23 +23,25 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Repository
-public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
+public class UnzipQueueDao implements WorkQueueDaoDelegate<UnzipQueueItem> {
 
     private JdbcTemplate jdbcTemplate;
 
     private FileLimitProperties fileLimitProperties;
 
-    private QueueProperties queueProperties;
+    private ObjectMapper objectMapper;
 
     @Autowired
-    public UnzipQueueDao(JdbcTemplate jdbcTemplate, FileLimitProperties fileLimitProperties, QueueProperties queueProperties) {
+    public UnzipQueueDao(JdbcTemplate jdbcTemplate, FileLimitProperties fileLimitProperties, ObjectMapper objectMapper) {
         this.jdbcTemplate = jdbcTemplate;
         this.fileLimitProperties = fileLimitProperties;
-        this.queueProperties = queueProperties;
+        this.objectMapper = objectMapper;
     }
 
     public int create(UnzipQueueItem unzipQueueItem) {
@@ -124,16 +130,19 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
                 "WITH r AS (\n" +
                         "    UPDATE unzip_queue SET " + QueueDao.POLL_UPDATE_LIST +
                         " WHERE id IN (SELECT id FROM unzip_queue qu " +
-                        "WHERE status = 0 AND attempts < ? AND CASE WHEN item_type = 0 THEN " +
+                        "WHERE status = 0 AND NOT EXISTS(select 1 FROM " + DownloadQueueItem.NAME + " dq where dq.producer = ? AND dq.producer_id = qu.id AND dq.status != 3) " +
+                        "AND CASE WHEN item_type = 0 THEN " +
                         "(file).size " + sign + " ? ELSE " +
                         "extract_file_size " + sign + " ? END " + QueueDao.POLL_ORDER_BY + " LIMIT " + limit + ") RETURNING *\n" +
                         ")\n" +
-                        "SELECT *, (file).*, 1 as queue_position\n" +
+                        "SELECT *, (file).*, 1 as queue_position,\n" +
+                        "(SELECT json_agg(ds) FROM (SELECT * FROM " + DownloadQueueItem.NAME + " dq WHERE dq.producer = ? AND dq.producer_id = r.id) as ds) as downloads\n" +
                         "FROM r",
                 ps -> {
-                    ps.setLong(1, queueProperties.getMaxAttempts());
+                    ps.setString(1, getQueueName());
                     ps.setLong(2, fileLimitProperties.getLightFileMaxWeight());
                     ps.setLong(3, fileLimitProperties.getLightFileMaxWeight());
+                    ps.setString(4, getQueueName());
                 },
                 (rs, rowNum) -> map(rs)
         );
@@ -225,6 +234,24 @@ public class UnzipQueueDao implements QueueDaoDelegate<UnzipQueueItem> {
             item.setExtractFileSize(resultSet.getLong(UnzipQueueItem.EXTRACT_FILE_SIZE));
         } else {
             item.setExtractFileSize(resultSet.getLong(UnzipQueueItem.EXTRACT_FILE_SIZE));
+        }
+        if (columns.contains(UnzipQueueItem.DOWNLOADS)) {
+            PGobject downloadsArr = (PGobject) resultSet.getObject(UnzipQueueItem.DOWNLOADS);
+            try {
+                List<Map<String, Object>> values = objectMapper.readValue(downloadsArr.getValue(), new TypeReference<>() {
+                });
+                List<DownloadQueueItem> downloadingQueueItems = new ArrayList<>();
+                for (Map<String, Object> value : values) {
+                    DownloadQueueItem downloadingQueueItem = new DownloadQueueItem();
+                    downloadingQueueItem.setFilePath((String) value.get(DownloadQueueItem.FILE_PATH));
+                    downloadingQueueItem.setFile(objectMapper.convertValue(value.get(DownloadQueueItem.FILE), TgFile.class));
+                    downloadingQueueItem.setDeleteParentDir((Boolean) value.get(DownloadQueueItem.DELETE_PARENT_DIR));
+                    downloadingQueueItems.add(downloadingQueueItem);
+                }
+                item.setDownload(downloadingQueueItems.isEmpty() ? null : downloadingQueueItems.get(0));
+            } catch (JsonProcessingException e) {
+                throw new SQLException(e);
+            }
         }
 
         return item;

@@ -130,7 +130,7 @@ public class UnzipMessageBuilder implements UpdateQueryStatusCommandMessageProvi
     }
 
     @Override
-    public String getWaitingMessage(QueueItem queueItem, Locale locale) {
+    public String getUpdateStatusMessage(QueueItem queueItem, Locale locale) {
         UnzipQueueItem unzipQueueItem = (UnzipQueueItem) queueItem;
         if (unzipQueueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
             return buildUnzipProgressMessage(unzipQueueItem, UnzipStep.WAITING, locale);
