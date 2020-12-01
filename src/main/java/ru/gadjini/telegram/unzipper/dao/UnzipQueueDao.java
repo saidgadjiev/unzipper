@@ -14,6 +14,7 @@ import ru.gadjini.telegram.smart.bot.commons.domain.DownloadQueueItem;
 import ru.gadjini.telegram.smart.bot.commons.domain.QueueItem;
 import ru.gadjini.telegram.smart.bot.commons.domain.TgFile;
 import ru.gadjini.telegram.smart.bot.commons.property.FileLimitProperties;
+import ru.gadjini.telegram.smart.bot.commons.property.QueueProperties;
 import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.smart.bot.commons.utils.JdbcUtils;
@@ -37,11 +38,15 @@ public class UnzipQueueDao implements WorkQueueDaoDelegate<UnzipQueueItem> {
 
     private ObjectMapper objectMapper;
 
+    private QueueProperties queueProperties;
+
     @Autowired
-    public UnzipQueueDao(JdbcTemplate jdbcTemplate, FileLimitProperties fileLimitProperties, ObjectMapper objectMapper) {
+    public UnzipQueueDao(JdbcTemplate jdbcTemplate, FileLimitProperties fileLimitProperties,
+                         ObjectMapper objectMapper, QueueProperties queueProperties) {
         this.jdbcTemplate = jdbcTemplate;
         this.fileLimitProperties = fileLimitProperties;
         this.objectMapper = objectMapper;
+        this.queueProperties = queueProperties;
     }
 
     public int create(UnzipQueueItem unzipQueueItem) {
@@ -105,12 +110,14 @@ public class UnzipQueueDao implements WorkQueueDaoDelegate<UnzipQueueItem> {
                 "SELECT COALESCE(queue_position, 1) as queue_position\n" +
                         "FROM (SELECT id, row_number() over (ORDER BY created_at) AS queue_position\n" +
                         "      FROM unzip_queue \n" +
-                        "      WHERE status = 0 AND CASE WHEN item_type IN (1, 2) THEN extract_file_size ELSE (file).size END " + (weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">") + " ?\n" +
+                        "      WHERE status = 0 AND attempts < ? AND CASE WHEN item_type IN (1, 2) THEN extract_file_size " +
+                        "ELSE (file).size END " + (weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">") + " ?\n" +
                         ") as file_q\n" +
                         "WHERE id = ?",
                 ps -> {
-                    ps.setLong(1, fileLimitProperties.getLightFileMaxWeight());
-                    ps.setInt(2, id);
+                    ps.setInt(1, queueProperties.getMaxAttempts());
+                    ps.setLong(2, fileLimitProperties.getLightFileMaxWeight());
+                    ps.setInt(3, id);
                 },
                 rs -> {
                     if (rs.next()) {

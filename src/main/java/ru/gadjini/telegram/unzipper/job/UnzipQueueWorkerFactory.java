@@ -1,20 +1,15 @@
 package ru.gadjini.telegram.unzipper.job;
 
-import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
-import org.telegram.telegrambots.meta.api.objects.InputFile;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
 import ru.gadjini.telegram.smart.bot.commons.model.Progress;
-import ru.gadjini.telegram.smart.bot.commons.service.TempFileService;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
 import ru.gadjini.telegram.smart.bot.commons.service.command.CommandStateService;
-import ru.gadjini.telegram.smart.bot.commons.service.file.FileUploadService;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.queue.QueueWorker;
@@ -30,8 +25,8 @@ import ru.gadjini.telegram.unzipper.service.unzip.UnzipMessageBuilder;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipState;
 
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 
 @Component
@@ -45,10 +40,6 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
 
     private MessageService messageService;
 
-    private FileUploadService fileUploadService;
-
-    private TempFileService fileService;
-
     private UserService userService;
 
     private CommandStateService commandStateService;
@@ -57,25 +48,19 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
 
     private UnzipMessageBuilder messageBuilder;
 
-    private AsteriskArchiveExtractor extractProcessorFactory;
+    private ArchiveExtractor extractProcessorFactory;
 
     @Autowired
     public UnzipQueueWorkerFactory(Set<UnzipDevice> unzipDevices, @Qualifier("messageLimits") MessageService messageService,
-                                   TempFileService fileService, UserService userService, CommandStateService commandStateService,
-                                   InlineKeyboardService inlineKeyboardService, UnzipMessageBuilder messageBuilder, AsteriskArchiveExtractor extractProcessorFactory) {
+                                   UserService userService, CommandStateService commandStateService,
+                                   InlineKeyboardService inlineKeyboardService, UnzipMessageBuilder messageBuilder, ArchiveExtractor extractProcessorFactory) {
         this.unzipDevices = unzipDevices;
         this.messageService = messageService;
-        this.fileService = fileService;
         this.userService = userService;
         this.commandStateService = commandStateService;
         this.inlineKeyboardService = inlineKeyboardService;
         this.messageBuilder = messageBuilder;
         this.extractProcessorFactory = extractProcessorFactory;
-    }
-
-    @Autowired
-    public void setFileUploadService(FileUploadService fileUploadService) {
-        this.fileUploadService = fileUploadService;
     }
 
     @Override
@@ -190,12 +175,20 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
             LOGGER.debug("Start extract all({}, {})", item.getUserId(), size);
             UnzipState unzipState = commandStateService.getState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
 
-            for (Map.Entry<Integer, ZipFileHeader> entry : unzipState.getFiles().entrySet()) {
-                AsteriskArchiveExtractor.ExtractedFile extract = extractProcessorFactory.createArchiveFile(entry).extract(item.getUserId(), unzipState);
+            ListIterator<ArchiveExtractor.ArchiveFile> archiveFilesIterator = extractProcessorFactory.getIterator(0, unzipState.getFiles());
+
+            boolean allUploaded = true;
+            while (archiveFilesIterator.hasNext()) {
+                ArchiveExtractor.ArchiveFile archiveFile = archiveFilesIterator.next();
+                ArchiveExtractor.ExtractedFile extract = archiveFile.extract(item.getUserId(), unzipState);
                 extractProcessorFactory.sendExtractedFile(item, extract);
-                if (extract.isStop()) {
+                if (extract.isNewMedia()) {
+                    allUploaded = false;
                     break;
                 }
+            }
+            if (allUploaded) {
+                extractProcessorFactory.finishExtracting(item.getUserId(), item.getProgressMessageId(), unzipState);
             }
             LOGGER.debug("Finish extract all({}, {})", item.getUserId(), size);
         }
@@ -203,13 +196,9 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
 
     public class ExtractFileQueueWorker implements QueueWorker {
 
-        private static final String TAG = "extractfile";
-
         private final Logger LOGGER = LoggerFactory.getLogger(ExtractFileQueueWorker.class);
 
         private final UnzipQueueItem item;
-
-        private volatile SmartTempFile out;
 
         private ExtractFileQueueWorker(UnzipQueueItem item) {
             this.item = item;
@@ -222,24 +211,12 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
             String size = MemoryUtils.humanReadableByteCount(fileHeader.getSize());
             LOGGER.debug("Start({}, {})", item.getUserId(), size);
 
-            UnzipDevice unzipDevice = getCandidate(unzipState.getArchiveType());
-            out = fileService.createTempFile(item.getUserId(), TAG, FilenameUtils.getExtension(fileHeader.getPath()));
-            unzipDevice.unzip(fileHeader.getPath(), unzipState.getArchivePath(), out.getAbsolutePath(), DEFAULT_PASSWORD);
-
-            String fileName = FilenameUtils.getName(fileHeader.getPath());
-            SendDocument sendDocument = SendDocument.builder().chatId(String.valueOf(item.getUserId()))
-                    .document(new InputFile(out.getFile(), fileName))
-                    .caption(fileName).build();
-            fileUploadService.createUpload(item.getUserId(), SendDocument.PATH, sendDocument, extractFileProgress(item),
-                    item.getId(), new Extra(item.getItemType(), item.getExtractFileId(), item.getProgressMessageId(), -1, item.getQueuePosition()));
-            LOGGER.debug("Finish({}, {})", item.getUserId(), size);
-        }
-
-        @Override
-        public void cancel() {
-            if (out != null) {
-                out.smartDelete();
+            ListIterator<ArchiveExtractor.ArchiveFile> iterator = extractProcessorFactory.getIterator(item.getExtractFileId(), unzipState.getFiles());
+            if (iterator.hasNext()) {
+                ArchiveExtractor.ExtractedFile extract = iterator.next().extract(item.getUserId(), unzipState);
+                extractProcessorFactory.sendExtractedFile(item, extract);
             }
+            LOGGER.debug("Finish({}, {})", item.getUserId(), size);
         }
     }
 }

@@ -22,10 +22,10 @@ public class UploadJobListener {
 
     private Gson gson;
 
-    private AsteriskArchiveExtractor extractProcessorFactory;
+    private ArchiveExtractor extractProcessorFactory;
 
     @Autowired
-    public UploadJobListener(CommandStateService commandStateService, Gson gson, AsteriskArchiveExtractor extractProcessorFactory) {
+    public UploadJobListener(CommandStateService commandStateService, Gson gson, ArchiveExtractor extractProcessorFactory) {
         this.commandStateService = commandStateService;
         this.gson = gson;
         this.extractProcessorFactory = extractProcessorFactory;
@@ -57,12 +57,20 @@ public class UploadJobListener {
     }
 
     private void extractAllUploadCompleted(UploadQueueItem item, Extra extra, UnzipState unzipState) {
-        ListIterator<AsteriskArchiveExtractor.ArchiveFile> iterator = extractProcessorFactory.getIterator(extra, unzipState.getFiles());
+        ListIterator<ArchiveExtractor.ArchiveFile> iterator = extractProcessorFactory.getIterator(extra, unzipState.getFiles());
 
-        if (iterator.hasNext()) {
-            AsteriskArchiveExtractor.ExtractedFile extract = iterator.next().extract(item.getUserId(), unzipState);
+        boolean allUploaded = true;
+        while (iterator.hasNext()) {
+            ArchiveExtractor.ArchiveFile archiveFile = iterator.next();
+            ArchiveExtractor.ExtractedFile extract = archiveFile.extract(item.getUserId(), unzipState);
             extractProcessorFactory.sendExtractedFile(item, extra, extract);
-        } else {
+
+            if (extract.isNewMedia()) {
+                allUploaded = false;
+                break;
+            }
+        }
+        if (allUploaded) {
             extractProcessorFactory.finishExtracting(item.getUserId(), extra.getProgressMessageId(), unzipState);
         }
     }

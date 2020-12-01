@@ -30,7 +30,7 @@ import ru.gadjini.telegram.unzipper.service.unzip.UnzipState;
 import java.util.*;
 
 @Component
-public class AsteriskArchiveExtractor {
+public class ArchiveExtractor {
 
     private static final String TAG = "extract";
 
@@ -53,10 +53,10 @@ public class AsteriskArchiveExtractor {
     private TempFileService fileService;
 
     @Autowired
-    public AsteriskArchiveExtractor(Set<UnzipDevice> unzipDevices, UserService userService, UnzipMessageBuilder messageBuilder,
-                                    InlineKeyboardService inlineKeyboardService, @Qualifier("messageLimits") MessageService messageService,
-                                    @Qualifier("mediaLimits") MediaMessageService mediaMessageService,
-                                    FileUploadService fileUploadService, LocalisationService localisationService, TempFileService fileService) {
+    public ArchiveExtractor(Set<UnzipDevice> unzipDevices, UserService userService, UnzipMessageBuilder messageBuilder,
+                            InlineKeyboardService inlineKeyboardService, @Qualifier("messageLimits") MessageService messageService,
+                            @Qualifier("mediaLimits") MediaMessageService mediaMessageService,
+                            LocalisationService localisationService, TempFileService fileService) {
         this.unzipDevices = unzipDevices;
         this.userService = userService;
         this.messageBuilder = messageBuilder;
@@ -65,6 +65,9 @@ public class AsteriskArchiveExtractor {
         this.mediaMessageService = mediaMessageService;
         this.localisationService = localisationService;
         this.fileService = fileService;
+    }
+
+    public void setFileUploadService(FileUploadService fileUploadService) {
         this.fileUploadService = fileUploadService;
     }
 
@@ -76,24 +79,32 @@ public class AsteriskArchiveExtractor {
         return archiveFiles.listIterator(extra.getLastFileIndex() + 1);
     }
 
+    public ListIterator<ArchiveFile> getIterator(int startWith, Map<Integer, ZipFileHeader> files) {
+        List<ArchiveFile> archiveFiles = new ArrayList<>();
+        for (Map.Entry<Integer, ZipFileHeader> entry : files.entrySet()) {
+            archiveFiles.add(new ArchiveFile(entry));
+        }
+        return archiveFiles.listIterator(startWith);
+    }
+
     public ArchiveFile createArchiveFile(Map.Entry<Integer, ZipFileHeader> fileEntry) {
         return new ArchiveFile(fileEntry);
     }
 
     public void sendExtractedFile(UploadQueueItem item, Extra currentExtra, ExtractedFile file) {
         if (file.getFile().isNew()) {
-            sendNewExtractedFile(item.getUserId(), currentExtra.getProgressMessageId(), currentExtra.getQueuePosition(),
-                    item.getProducerId(), file, createNextExtra(currentExtra, file));
+            sendNewExtractedFile(item.getUserId(), item.getProducerId(), currentExtra.getProgressMessageId(),
+                    currentExtra.getQueuePosition(), file, createNextExtra(currentExtra, file));
         } else {
-            sendFromCache(item.getUserId(), currentExtra.getProgressMessageId(), currentExtra.getQueuePosition(), item.getProducerId(), file);
+            sendFromCache(item.getUserId(), item.getProducerId(), currentExtra.getProgressMessageId(), currentExtra.getQueuePosition(), file);
         }
     }
 
     public void sendExtractedFile(UnzipQueueItem item, ExtractedFile file) {
         if (file.getFile().isNew()) {
-            sendNewExtractedFile(item.getUserId(), item.getProgressMessageId(), item.getQueuePosition(), item.getId(), file, createNextExtra(item, file));
+            sendNewExtractedFile(item.getUserId(), item.getId(), item.getProgressMessageId(), item.getQueuePosition(), file, createNextExtra(item, file));
         } else {
-            sendFromCache(item.getUserId(), item.getProgressMessageId(), item.getQueuePosition(), item.getId(), file);
+            sendFromCache(item.getUserId(), item.getId(), item.getProgressMessageId(), item.getQueuePosition(), file);
         }
     }
 
@@ -191,7 +202,7 @@ public class AsteriskArchiveExtractor {
 
         public ExtractedFile extract(int userId, UnzipState unzipState) {
             if (unzipState.getFilesCache().containsKey(archiveFileEntry.getKey())) {
-                return new ExtractedFile(new InputFile(unzipState.getFilesCache().get(archiveFileEntry.getKey())), archiveFileEntry.getKey(), unzipState.getFiles().size(), false);
+                return new ExtractedFile(new InputFile(unzipState.getFilesCache().get(archiveFileEntry.getKey())), archiveFileEntry.getKey(), unzipState.getFiles().size(), true);
             } else {
                 SmartTempFile file = fileService.createTempFile(userId, TAG, FilenameUtils.getExtension(archiveFileEntry.getValue().getPath()));
                 UnzipDevice unzipDevice = getCandidate(unzipState.getArchiveType());
@@ -199,7 +210,7 @@ public class AsteriskArchiveExtractor {
 
                 String fileName = FilenameUtils.getName(archiveFileEntry.getValue().getPath());
 
-                return new ExtractedFile(new InputFile(file.getFile(), fileName), archiveFileEntry.getKey(), unzipState.getFiles().size(), true);
+                return new ExtractedFile(new InputFile(file.getFile(), fileName), archiveFileEntry.getKey(), unzipState.getFiles().size(), false);
             }
         }
     }
@@ -208,21 +219,21 @@ public class AsteriskArchiveExtractor {
 
         private InputFile file;
 
-        private boolean stop;
-
         private int cacheKey;
 
         private int totalFiles;
 
-        private ExtractedFile(InputFile file, int cacheKey, int totalFiles, boolean stop) {
+        private boolean fromCache;
+
+        private ExtractedFile(InputFile file, int cacheKey, int totalFiles, boolean fromCache) {
             this.file = file;
-            this.stop = stop;
             this.cacheKey = cacheKey;
             this.totalFiles = totalFiles;
+            this.fromCache = fromCache;
         }
 
-        public boolean isStop() {
-            return stop;
+        public boolean isNewMedia() {
+            return !isFromCache();
         }
 
         public InputFile getFile() {
@@ -234,11 +245,15 @@ public class AsteriskArchiveExtractor {
         }
 
         public int getIndex() {
-            return cacheKey;
+            return cacheKey - 1;
         }
 
         public int getTotalFiles() {
             return totalFiles;
+        }
+
+        public boolean isFromCache() {
+            return fromCache;
         }
     }
 }
