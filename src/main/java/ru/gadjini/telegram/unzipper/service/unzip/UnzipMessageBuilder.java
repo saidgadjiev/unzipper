@@ -27,9 +27,9 @@ public class UnzipMessageBuilder implements UpdateQueryStatusCommandMessageProvi
         this.localisationService = localisationService;
     }
 
-    public String buildExtractAllProgressMessage(int count, int current, ExtractFileStep extractFileStep, int queuePosition, Locale locale) {
+    public String buildExtractAllProgressMessage(int count, int extractedCount, ExtractFileStep extractFileStep, int queuePosition, Locale locale) {
         return localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queuePosition}, locale) + "\n\n" +
-                localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_ALL, new Object[]{current - 1, count}, locale) + "\n" +
+                localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACTING_ALL, new Object[]{extractedCount, count}, locale) + "\n" +
                 buildExtractFileProgressMessage(extractFileStep, locale) + "\n\n" +
                 localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale);
     }

@@ -237,20 +237,22 @@ public class UnzipQueueDao implements WorkQueueDaoDelegate<UnzipQueueItem> {
         }
         if (columns.contains(UnzipQueueItem.DOWNLOADS)) {
             PGobject downloadsArr = (PGobject) resultSet.getObject(UnzipQueueItem.DOWNLOADS);
-            try {
-                List<Map<String, Object>> values = objectMapper.readValue(downloadsArr.getValue(), new TypeReference<>() {
-                });
-                List<DownloadQueueItem> downloadingQueueItems = new ArrayList<>();
-                for (Map<String, Object> value : values) {
-                    DownloadQueueItem downloadingQueueItem = new DownloadQueueItem();
-                    downloadingQueueItem.setFilePath((String) value.get(DownloadQueueItem.FILE_PATH));
-                    downloadingQueueItem.setFile(objectMapper.convertValue(value.get(DownloadQueueItem.FILE), TgFile.class));
-                    downloadingQueueItem.setDeleteParentDir((Boolean) value.get(DownloadQueueItem.DELETE_PARENT_DIR));
-                    downloadingQueueItems.add(downloadingQueueItem);
+            if (downloadsArr != null) {
+                try {
+                    List<Map<String, Object>> values = objectMapper.readValue(downloadsArr.getValue(), new TypeReference<>() {
+                    });
+                    List<DownloadQueueItem> downloadingQueueItems = new ArrayList<>();
+                    for (Map<String, Object> value : values) {
+                        DownloadQueueItem downloadingQueueItem = new DownloadQueueItem();
+                        downloadingQueueItem.setFilePath((String) value.get(DownloadQueueItem.FILE_PATH));
+                        downloadingQueueItem.setFile(objectMapper.convertValue(value.get(DownloadQueueItem.FILE), TgFile.class));
+                        downloadingQueueItem.setDeleteParentDir((Boolean) value.get(DownloadQueueItem.DELETE_PARENT_DIR));
+                        downloadingQueueItems.add(downloadingQueueItem);
+                    }
+                    item.setDownload(downloadingQueueItems.isEmpty() ? null : downloadingQueueItems.get(0));
+                } catch (JsonProcessingException e) {
+                    throw new SQLException(e);
                 }
-                item.setDownload(downloadingQueueItems.isEmpty() ? null : downloadingQueueItems.get(0));
-            } catch (JsonProcessingException e) {
-                throw new SQLException(e);
             }
         }
 

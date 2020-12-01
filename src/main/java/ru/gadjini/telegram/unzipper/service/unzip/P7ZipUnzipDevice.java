@@ -87,7 +87,7 @@ public class P7ZipUnzipDevice extends BaseUnzipDevice {
     }
 
     @Override
-    public void unzip(String fileHeader, String archivePath, String out, String password) throws IOException {
+    public void unzip(String fileHeader, String archivePath, String out, String password) {
         File listFile = getListFile(fileHeader);
         try {
             processExecutor.executeWithFile(buildUnzipFileCommand(listFile.getAbsolutePath(), archivePath, password), out);
@@ -96,12 +96,16 @@ public class P7ZipUnzipDevice extends BaseUnzipDevice {
         }
     }
 
-    private File getListFile(String fileHeader) throws IOException {
-        File listFile = File.createTempFile("list", ".txt");
-        try (PrintWriter printWriter = new PrintWriter(listFile)) {
-            printWriter.print(fileHeader);
+    private File getListFile(String fileHeader) {
+        try {
+            File listFile = File.createTempFile("list", ".txt");
+            try (PrintWriter printWriter = new PrintWriter(listFile)) {
+                printWriter.print(fileHeader);
 
-            return listFile;
+                return listFile;
+            }
+        } catch (IOException e) {
+            throw new ProcessException(e);
         }
     }
 
