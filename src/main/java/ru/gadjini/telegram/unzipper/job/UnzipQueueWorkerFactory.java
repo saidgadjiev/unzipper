@@ -198,11 +198,11 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
             String size = MemoryUtils.humanReadableByteCount(fileHeader.getSize());
             LOGGER.debug("Start({}, {})", item.getUserId(), size);
 
-            ListIterator<ArchiveExtractor.ArchiveFile> iterator = extractProcessorFactory.getIterator(item.getExtractFileId(), unzipState.getFiles());
-            if (iterator.hasNext()) {
-                ArchiveExtractor.ExtractedFile extract = iterator.next().extract(item.getUserId(), unzipState);
-                extractProcessorFactory.sendExtractedFile(item, extract);
-            }
+            ListIterator<ArchiveExtractor.ArchiveFile> iterator = extractProcessorFactory.getIterator(item.getExtractFileId() - 1, unzipState.getFiles());
+
+            ArchiveExtractor.ExtractedFile extract = iterator.next().extract(item.getUserId(), unzipState);
+            extractProcessorFactory.sendExtractedFile(item, extract);
+
             LOGGER.debug("Finish({}, {})", item.getUserId(), size);
         }
     }

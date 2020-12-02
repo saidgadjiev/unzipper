@@ -67,6 +67,7 @@ public class ArchiveExtractor {
         this.fileService = fileService;
     }
 
+    @Autowired
     public void setFileUploadService(FileUploadService fileUploadService) {
         this.fileUploadService = fileUploadService;
     }
