@@ -44,9 +44,9 @@ public class UnzipQueueJobConfigurator implements QueueJobConfigurator<UnzipQueu
     @Override
     public String getWaitingMessage(UnzipQueueItem queueItem, Locale locale) {
         if (queueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
-            return messageBuilder.buildUnzipProgressMessage(queueItem, UnzipStep.WAITING, locale);
+            return messageBuilder.buildUnzipProgressMessage(queueItem.getQueuePosition(), UnzipStep.WAITING, locale);
         } else {
-            return messageBuilder.buildExtractFileProgressMessage(queueItem, ExtractFileStep.WAITING, locale);
+            return messageBuilder.buildExtractFileProgressMessage(queueItem.getQueuePosition(), ExtractFileStep.WAITING, locale);
         }
     }
 

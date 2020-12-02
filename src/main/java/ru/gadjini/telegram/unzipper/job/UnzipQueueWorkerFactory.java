@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
-import ru.gadjini.telegram.smart.bot.commons.model.Progress;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
 import ru.gadjini.telegram.smart.bot.commons.service.command.CommandStateService;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
@@ -19,7 +18,6 @@ import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
 import ru.gadjini.telegram.unzipper.service.keyboard.InlineKeyboardService;
-import ru.gadjini.telegram.unzipper.service.unzip.ExtractFileStep;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipDevice;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipMessageBuilder;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipState;
@@ -72,17 +70,6 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
         } else {
             return new ExtractAllQueueWorker(item);
         }
-    }
-
-    private Progress extractFileProgress(UnzipQueueItem queueItem) {
-        Locale locale = userService.getLocaleOrDefault(queueItem.getUserId());
-        Progress progress = new Progress();
-        progress.setChatId(queueItem.getUserId());
-        progress.setProgressMessageId(queueItem.getProgressMessageId());
-        progress.setProgressMessage(messageBuilder.buildExtractFileProgressMessage(queueItem, ExtractFileStep.UPLOADING, locale));
-        progress.setProgressReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(queueItem.getId(), locale));
-
-        return progress;
     }
 
     private UnzipDevice getCandidate(Format format) {

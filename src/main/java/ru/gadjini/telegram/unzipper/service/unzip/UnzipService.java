@@ -179,14 +179,14 @@ public class UnzipService {
     }
 
     private void sendStartUnzippingMessage(UnzipQueueItem queueItem, Locale locale, Consumer<Message> callback) {
-        String message = messageBuilder.buildUnzipProgressMessage(queueItem, UnzipStep.WAITING, locale);
+        String message = messageBuilder.buildUnzipProgressMessage(queueItem.getQueuePosition(), UnzipStep.WAITING, locale);
         messageService.sendMessage(SendMessage.builder().chatId(String.valueOf(queueItem.getUserId())).text(message)
                 .replyMarkup(inlineKeyboardService.getUnzipWaitingKeyboard(queueItem.getId(), locale)).parseMode(ParseMode.HTML).build(), callback);
     }
 
     private void sendStartExtractingAllMessage(UnzipQueueItem queueItem) {
         Locale locale = userService.getLocaleOrDefault(queueItem.getUserId());
-        String message = messageBuilder.buildExtractFileProgressMessage(queueItem, ExtractFileStep.WAITING, locale);
+        String message = messageBuilder.buildExtractFileProgressMessage(queueItem.getQueuePosition(), ExtractFileStep.WAITING, locale);
         messageService.editMessage(EditMessageText.builder().chatId(String.valueOf(queueItem.getUserId()))
                 .messageId(queueItem.getProgressMessageId()).text(message)
                 .replyMarkup(inlineKeyboardService.getExtractFileWaitingKeyboard(queueItem.getId(), locale)).build(), false);
@@ -194,7 +194,7 @@ public class UnzipService {
 
     private void sendStartExtractingFileMessage(UnzipQueueItem queueItem) {
         Locale locale = userService.getLocaleOrDefault(queueItem.getUserId());
-        String message = messageBuilder.buildExtractFileProgressMessage(queueItem, ExtractFileStep.WAITING, locale);
+        String message = messageBuilder.buildExtractFileProgressMessage(queueItem.getQueuePosition(), ExtractFileStep.WAITING, locale);
         messageService.editMessage(EditMessageText.builder().chatId(String.valueOf(queueItem.getUserId()))
                 .messageId(queueItem.getProgressMessageId())
                 .text(message)
@@ -217,9 +217,9 @@ public class UnzipService {
         Progress progress = new Progress();
         progress.setChatId(item.getUserId());
         progress.setProgressMessageId(item.getProgressMessageId());
-        progress.setProgressMessage(messageBuilder.buildUnzipProgressMessage(item, UnzipStep.DOWNLOADING, locale));
+        progress.setProgressMessage(messageBuilder.buildUnzipProgressMessage(item.getQueuePosition(), UnzipStep.DOWNLOADING, locale));
 
-        String completionMessage = messageBuilder.buildUnzipProgressMessage(item, UnzipStep.UNZIPPING, locale);
+        String completionMessage = messageBuilder.buildUnzipProgressMessage(item.getQueuePosition(), UnzipStep.UNZIPPING, locale);
         String seconds = localisationService.getMessage(MessagesProperties.SECOND_PART, locale);
         progress.setAfterProgressCompletionMessage(String.format(completionMessage, 50, "10 " + seconds));
         progress.setAfterProgressCompletionReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(item.getId(), locale));

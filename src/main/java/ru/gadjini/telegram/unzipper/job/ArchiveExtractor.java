@@ -87,10 +87,6 @@ public class ArchiveExtractor {
         return archiveFiles.listIterator(startWith);
     }
 
-    public ArchiveFile createArchiveFile(Map.Entry<Integer, ZipFileHeader> fileEntry) {
-        return new ArchiveFile(fileEntry);
-    }
-
     public void sendExtractedFile(UploadQueueItem item, Extra currentExtra, ExtractedFile file) {
         if (file.getFile().isNew()) {
             sendNewExtractedFile(item.getUserId(), item.getProducerId(), currentExtra.getProgressMessageId(),
@@ -160,13 +156,25 @@ public class ArchiveExtractor {
         return progress;
     }
 
+    private Progress extractFileProgress(int userId, int jobId, int progressMessageId, int queuePosition) {
+        Locale locale = userService.getLocaleOrDefault(userId);
+        Progress progress = new Progress();
+        progress.setChatId(userId);
+        progress.setProgressMessageId(progressMessageId);
+        progress.setProgressMessage(messageBuilder.buildExtractFileProgressMessage(queuePosition, ExtractFileStep.UPLOADING, locale));
+        progress.setProgressReplyMarkup(inlineKeyboardService.getExtractFileProcessingKeyboard(jobId, locale));
+
+        return progress;
+    }
+
     private void sendNewExtractedFile(int userId, int jobId, int progressMessageId, int queuePosition, ExtractedFile file, Extra nextExtra) {
         SendDocument sendDocument = SendDocument.builder().chatId(String.valueOf(userId))
                 .document(file.getFile())
                 .caption(file.getFile().getMediaName()).build();
         fileUploadService.createUpload(userId, SendDocument.PATH, sendDocument,
-                extractAllProgress(userId, progressMessageId, queuePosition,
-                        jobId, file.getTotalFiles(), file.getIndex()), jobId, nextExtra);
+                nextExtra.getItemType() == UnzipQueueItem.ItemType.EXTRACT_ALL
+                        ? extractAllProgress(userId, progressMessageId, queuePosition, jobId, file.getTotalFiles(), file.getIndex())
+                        : extractFileProgress(userId, jobId, progressMessageId, queuePosition), jobId, nextExtra);
     }
 
     private void sendFromCache(int userId, int jobId, int progressMessageId, int queuePosition, ExtractedFile extractedFile) {

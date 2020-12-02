@@ -34,8 +34,8 @@ public class UnzipMessageBuilder implements UpdateQueryStatusCommandMessageProvi
                 localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale);
     }
 
-    public String buildExtractFileProgressMessage(UnzipQueueItem queueItem, ExtractFileStep extractFileStep, Locale locale) {
-        return localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queueItem.getQueuePosition()}, locale) + "\n\n" +
+    public String buildExtractFileProgressMessage(int queuePosition, ExtractFileStep extractFileStep, Locale locale) {
+        return localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queuePosition}, locale) + "\n\n" +
                 buildExtractFileProgressMessage(extractFileStep, locale) + "\n\n" +
                 localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale);
     }
@@ -60,8 +60,8 @@ public class UnzipMessageBuilder implements UpdateQueryStatusCommandMessageProvi
         }
     }
 
-    public String buildUnzipProgressMessage(UnzipQueueItem queueItem, UnzipStep unzipStep, Locale locale) {
-        return localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queueItem.getQueuePosition()}, locale) + "\n\n" +
+    public String buildUnzipProgressMessage(int queuePosition, UnzipStep unzipStep, Locale locale) {
+        return localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queuePosition}, locale) + "\n\n" +
                 buildUnzipProgressMessage(unzipStep, locale) + "\n\n" +
                 localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale);
     }
@@ -133,9 +133,9 @@ public class UnzipMessageBuilder implements UpdateQueryStatusCommandMessageProvi
     public String getUpdateStatusMessage(QueueItem queueItem, Locale locale) {
         UnzipQueueItem unzipQueueItem = (UnzipQueueItem) queueItem;
         if (unzipQueueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
-            return buildUnzipProgressMessage(unzipQueueItem, UnzipStep.WAITING, locale);
+            return buildUnzipProgressMessage(unzipQueueItem.getQueuePosition(), UnzipStep.WAITING, locale);
         } else {
-            return buildExtractFileProgressMessage(unzipQueueItem, ExtractFileStep.WAITING, locale);
+            return buildExtractFileProgressMessage(queueItem.getQueuePosition(), ExtractFileStep.WAITING, locale);
         }
     }
 
