@@ -11,9 +11,7 @@ import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
 
-import java.util.Iterator;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class UnzipMessageBuilder implements UpdateQueryStatusCommandMessageProvider {
@@ -61,18 +59,22 @@ public class UnzipMessageBuilder implements UpdateQueryStatusCommandMessageProvi
     }
 
     public String buildUnzipProgressMessage(int queuePosition, UnzipStep unzipStep, Locale locale) {
+        return buildUnzipProgressMessage(queuePosition, unzipStep, Collections.emptySet(), locale);
+    }
+
+    public String buildUnzipProgressMessage(int queuePosition, UnzipStep unzipStep, Set<UnzipStep> completedSteps, Locale locale) {
         return localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queuePosition}, locale) + "\n\n" +
-                buildUnzipProgressMessage(unzipStep, locale) + "\n\n" +
+                buildUnzipProgressMessage(unzipStep, completedSteps, locale) + "\n\n" +
                 localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale);
     }
 
-    private String buildUnzipProgressMessage(UnzipStep unzipStep, Locale locale) {
+    private String buildUnzipProgressMessage(UnzipStep unzipStep, Set<UnzipStep> completedSteps, Locale locale) {
         String iconCheck = localisationService.getMessage(MessagesProperties.ICON_CHECK, locale);
 
         switch (unzipStep) {
             case WAITING:
                 return "<b>" + localisationService.getMessage(MessagesProperties.WAITING_STEP, locale) + "...</b>\n" +
-                        "<b>" + localisationService.getMessage(MessagesProperties.DOWNLOADING_STEP, locale) + "</b>\n" +
+                        "<b>" + localisationService.getMessage(MessagesProperties.DOWNLOADING_STEP, locale) + "</b>" + (completedSteps.contains(UnzipStep.DOWNLOADING) ? " " + iconCheck : "") + "\n" +
                         "<b>" + localisationService.getMessage(MessagesProperties.UNZIPPING_STEP, locale) + "</b>";
             case DOWNLOADING:
                 return "<b>" + localisationService.getMessage(MessagesProperties.DOWNLOADING_STEP, locale) + "...</b>\n" +

@@ -14,7 +14,7 @@ import ru.gadjini.telegram.smart.bot.commons.command.api.BotCommand;
 import ru.gadjini.telegram.smart.bot.commons.command.api.CallbackBotCommand;
 import ru.gadjini.telegram.smart.bot.commons.command.api.NavigableBotCommand;
 import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
-import ru.gadjini.telegram.smart.bot.commons.job.QueueJob;
+import ru.gadjini.telegram.smart.bot.commons.job.WorkQueueJob;
 import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
 import ru.gadjini.telegram.smart.bot.commons.model.TgMessage;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
@@ -42,7 +42,7 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
 
     private UnzipService unzipService;
 
-    private QueueJob queueJob;
+    private WorkQueueJob queueJob;
 
     private LocalisationService localisationService;
 
@@ -60,7 +60,7 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
 
     @Autowired
     public StartCommand(LocalisationService localisationService, UnzipService unzipService,
-                        QueueJob queueJob, @Qualifier("messageLimits") MessageService messageService,
+                        WorkQueueJob queueJob, @Qualifier("messageLimits") MessageService messageService,
                         @Qualifier("curr") ReplyKeyboardService replyKeyboardService,
                         UserService userService, FormatService formatService, MessageMediaService fileService,
                         CommandStateService commandStateService) {

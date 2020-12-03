@@ -1,31 +1,13 @@
 package ru.gadjini.telegram.unzipper.job;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import ru.gadjini.telegram.smart.bot.commons.exception.ProcessException;
 import ru.gadjini.telegram.smart.bot.commons.service.queue.QueueJobConfigurator;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
-import ru.gadjini.telegram.unzipper.service.keyboard.InlineKeyboardService;
-import ru.gadjini.telegram.unzipper.service.unzip.ExtractFileStep;
-import ru.gadjini.telegram.unzipper.service.unzip.UnzipMessageBuilder;
-import ru.gadjini.telegram.unzipper.service.unzip.UnzipStep;
-
-import java.util.Locale;
 
 @Component
 public class UnzipQueueJobConfigurator implements QueueJobConfigurator<UnzipQueueItem> {
-
-    private UnzipMessageBuilder messageBuilder;
-
-    private InlineKeyboardService inlineKeyboardService;
-
-    @Autowired
-    public UnzipQueueJobConfigurator(UnzipMessageBuilder messageBuilder, InlineKeyboardService inlineKeyboardService) {
-        this.messageBuilder = messageBuilder;
-        this.inlineKeyboardService = inlineKeyboardService;
-    }
 
     @Override
     public boolean isNeedUpdateMessageAfterCancel(UnzipQueueItem queueItem) {
@@ -39,23 +21,5 @@ public class UnzipQueueJobConfigurator implements QueueJobConfigurator<UnzipQueu
         }
 
         return null;
-    }
-
-    @Override
-    public String getWaitingMessage(UnzipQueueItem queueItem, Locale locale) {
-        if (queueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
-            return messageBuilder.buildUnzipProgressMessage(queueItem.getQueuePosition(), UnzipStep.WAITING, locale);
-        } else {
-            return messageBuilder.buildExtractFileProgressMessage(queueItem.getQueuePosition(), ExtractFileStep.WAITING, locale);
-        }
-    }
-
-    @Override
-    public InlineKeyboardMarkup getWaitingKeyboard(UnzipQueueItem queueItem, Locale locale) {
-        if (queueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
-            return inlineKeyboardService.getUnzipWaitingKeyboard(queueItem.getId(), locale);
-        } else {
-            return inlineKeyboardService.getExtractFileWaitingKeyboard(queueItem.getId(), locale);
-        }
     }
 }
