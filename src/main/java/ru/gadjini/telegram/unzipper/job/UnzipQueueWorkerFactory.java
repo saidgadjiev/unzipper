@@ -28,6 +28,7 @@ import java.util.Locale;
 import java.util.Set;
 
 @Component
+@SuppressWarnings("PMD")
 public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueItem> {
 
     public static final String DEFAULT_PASSWORD = "no";
@@ -101,12 +102,12 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
         @Override
         public void execute() {
             String size = MemoryUtils.humanReadableByteCount(item.getSize());
+            Locale locale = userService.getLocaleOrDefault(item.getUserId());
             LOGGER.debug("Start({}, {}, {}, {})", item.getUserId(), size, item.getFile().getFormat(), item.getFile().getFileId());
             UnzipState unzipState = initAndGetState(in.getAbsolutePath());
             if (unzipState == null) {
                 return;
             }
-            Locale locale = userService.getLocaleOrDefault(item.getUserId());
             UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, 0, locale);
 
             messageService.editMessage(EditMessageText.builder().chatId(String.valueOf(item.getUserId()))

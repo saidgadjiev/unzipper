@@ -219,11 +219,11 @@ public class UnzipService {
         progress.setProgressMessageId(item.getProgressMessageId());
         progress.setProgressMessage(messageBuilder.buildUnzipProgressMessage(item.getQueuePosition(), UnzipStep.DOWNLOADING, locale));
 
-        String completionMessage = messageBuilder.buildUnzipProgressMessage(item.getQueuePosition(), UnzipStep.UNZIPPING, Set.of(UnzipStep.DOWNLOADING), locale);
+        String completionMessage = messageBuilder.buildUnzipProgressMessage(item.getQueuePosition(), UnzipStep.WAITING, Set.of(UnzipStep.DOWNLOADING), locale);
         String seconds = localisationService.getMessage(MessagesProperties.SECOND_PART, locale);
         progress.setAfterProgressCompletionMessage(String.format(completionMessage, 50, "10 " + seconds));
-        progress.setAfterProgressCompletionReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(item.getId(), locale));
-        progress.setProgressReplyMarkup(inlineKeyboardService.getUnzipProcessingKeyboard(item.getId(), locale));
+        progress.setAfterProgressCompletionReplyMarkup(inlineKeyboardService.getUnzipWaitingKeyboard(item.getId(), locale));
+        progress.setProgressReplyMarkup(inlineKeyboardService.getUnzipWaitingKeyboard(item.getId(), locale));
 
         return progress;
     }
