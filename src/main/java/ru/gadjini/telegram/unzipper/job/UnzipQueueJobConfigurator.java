@@ -11,7 +11,7 @@ public class UnzipQueueJobConfigurator implements QueueJobConfigurator<UnzipQueu
 
     @Override
     public boolean isNeedUpdateMessageAfterCancel(UnzipQueueItem queueItem) {
-        return queueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP;
+        return queueItem == null || queueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP;
     }
 
     @Override
