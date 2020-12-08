@@ -137,19 +137,17 @@ public class UnzipQueueDao implements WorkQueueDaoDelegate<UnzipQueueItem> {
                 "WITH r AS (\n" +
                         "    UPDATE unzip_queue SET " + QueueDao.POLL_UPDATE_LIST +
                         " WHERE id IN (SELECT id FROM unzip_queue qu " +
-                        "WHERE status = 0 AND NOT EXISTS(select 1 FROM " + DownloadQueueItem.NAME + " dq where dq.producer = ? AND dq.producer_id = qu.id AND dq.status != 3) " +
+                        "WHERE status = 0 AND NOT EXISTS(select 1 FROM " + DownloadQueueItem.NAME + " dq where dq.producer = 'unzip_queue' AND dq.producer_id = qu.id AND dq.status != 3) " +
                         "AND CASE WHEN item_type = 0 THEN " +
                         "(file).size " + sign + " ? ELSE " +
                         "extract_file_size " + sign + " ? END " + QueueDao.POLL_ORDER_BY + " LIMIT " + limit + ") RETURNING *\n" +
                         ")\n" +
                         "SELECT *, (file).*, 1 as queue_position,\n" +
-                        "(SELECT json_agg(ds) FROM (SELECT * FROM " + DownloadQueueItem.NAME + " dq WHERE dq.producer = ? AND dq.producer_id = r.id) as ds) as downloads\n" +
+                        "(SELECT json_agg(ds) FROM (SELECT * FROM " + DownloadQueueItem.NAME + " dq WHERE dq.producer = 'unzip_queue' AND dq.producer_id = r.id) as ds) as downloads\n" +
                         "FROM r",
                 ps -> {
-                    ps.setString(1, getQueueName());
+                    ps.setLong(1, fileLimitProperties.getLightFileMaxWeight());
                     ps.setLong(2, fileLimitProperties.getLightFileMaxWeight());
-                    ps.setLong(3, fileLimitProperties.getLightFileMaxWeight());
-                    ps.setString(4, getQueueName());
                 },
                 (rs, rowNum) -> map(rs)
         );
