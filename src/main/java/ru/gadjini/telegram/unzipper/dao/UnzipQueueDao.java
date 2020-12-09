@@ -209,6 +209,11 @@ public class UnzipQueueDao implements WorkQueueDaoDelegate<UnzipQueueItem> {
     }
 
     @Override
+    public String getProducerName() {
+        return UnzipQueueItem.NAME;
+    }
+
+    @Override
     public String getQueueName() {
         return UnzipQueueItem.NAME;
     }
