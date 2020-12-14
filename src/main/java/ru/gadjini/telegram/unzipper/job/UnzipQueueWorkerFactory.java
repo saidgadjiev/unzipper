@@ -90,7 +90,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
     private ErrorCode getErrorCode0(long chatId, Throwable e) {
         if (e instanceof ProcessException) {
             UnzipState unzipState = commandStateService.getState(chatId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
-            if (unzipState != null && !StringUtils.isEmpty(unzipState.getPassword())) {
+            if (unzipState != null && !StringUtils.isEmpty(unzipState.getPassword()) && !unzipState.getPassword().equals(DEFAULT_PASSWORD)) {
                 return new ErrorCode(MessagesProperties.MESSAGE_UNZIP_ERROR_INCORRECT_PASSWORD, new Object[]{unzipState.getPassword()});
             } else {
                 return new ErrorCode(MessagesProperties.MESSAGE_UNZIP_ERROR);

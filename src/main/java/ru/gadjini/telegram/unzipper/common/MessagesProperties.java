@@ -69,4 +69,6 @@ public class MessagesProperties {
 
     public static final String MESSAGE_PASSWORD_CLEARED = "message.password.cleared";
 
+    public static final String MESSAGE_SEND_PASSWORD = "message.send.password";
+
 }

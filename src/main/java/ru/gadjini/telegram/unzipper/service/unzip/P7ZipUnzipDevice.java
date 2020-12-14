@@ -2,14 +2,12 @@ package ru.gadjini.telegram.unzipper.service.unzip;
 
 import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Component;
 import ru.gadjini.telegram.smart.bot.commons.exception.ProcessException;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
 import ru.gadjini.telegram.smart.bot.commons.service.ProcessExecutor;
 import ru.gadjini.telegram.smart.bot.commons.service.TempFileService;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
-import ru.gadjini.telegram.unzipper.condition.LinuxMacCondition;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
 
 import java.io.File;
@@ -21,7 +19,6 @@ import java.util.List;
 import java.util.Set;
 
 @Component
-@Conditional({LinuxMacCondition.class})
 public class P7ZipUnzipDevice extends BaseUnzipDevice {
 
     private static final String TAG = "p7unzip";

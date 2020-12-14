@@ -64,6 +64,7 @@ public class UnzipMessageBuilder implements UpdateQueryStatusCommandMessageProvi
 
     public String buildUnzipProgressMessage(int queuePosition, UnzipStep unzipStep, Set<UnzipStep> completedSteps, Locale locale) {
         return localisationService.getMessage(MessagesProperties.MESSAGE_FILE_QUEUED, new Object[]{queuePosition}, locale) + "\n\n" +
+                localisationService.getMessage(MessagesProperties.MESSAGE_SEND_PASSWORD, locale) + "\n\n" +
                 buildUnzipProgressMessage(unzipStep, completedSteps, locale) + "\n\n" +
                 localisationService.getMessage(MessagesProperties.MESSAGE_DONT_SEND_NEW_REQUEST, locale);
     }
