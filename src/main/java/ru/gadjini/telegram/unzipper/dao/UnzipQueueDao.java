@@ -153,6 +153,16 @@ public class UnzipQueueDao implements WorkQueueDaoDelegate<UnzipQueueItem> {
         );
     }
 
+    @Override
+    public long countReadToComplete(SmartExecutorService.JobWeight weight) {
+        return 0;
+    }
+
+    @Override
+    public long countProcessing(SmartExecutorService.JobWeight weight) {
+        return 0;
+    }
+
     public SmartExecutorService.JobWeight getWeight(int id) {
         Long size = jdbcTemplate.query(
                 "SELECT CASE WHEN item_type IN (1, 2) THEN extract_file_size ELSE (file).size END FROM unzip_queue WHERE id = ?",

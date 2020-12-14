@@ -1,5 +1,6 @@
 package ru.gadjini.telegram.unzipper.command.keyboard;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +14,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import ru.gadjini.telegram.smart.bot.commons.command.api.BotCommand;
 import ru.gadjini.telegram.smart.bot.commons.command.api.CallbackBotCommand;
 import ru.gadjini.telegram.smart.bot.commons.command.api.NavigableBotCommand;
+import ru.gadjini.telegram.smart.bot.commons.common.CommandNames;
 import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.smart.bot.commons.job.WorkQueueJob;
 import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
@@ -28,7 +30,7 @@ import ru.gadjini.telegram.smart.bot.commons.service.keyboard.ReplyKeyboardServi
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.request.RequestParams;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
-import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
+import ru.gadjini.telegram.unzipper.job.UnzipQueueWorkerFactory;
 import ru.gadjini.telegram.unzipper.request.Arg;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipService;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipState;
@@ -77,17 +79,17 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
 
     @Override
     public boolean acceptNonCommandMessage(Message message) {
-        return message.hasDocument();
+        return message.hasDocument() || message.hasText();
     }
 
     @Override
     public String getParentCommandName(long chatId) {
-        return UnzipCommandNames.START_COMMAND_NAME;
+        return CommandNames.START_COMMAND_NAME;
     }
 
     @Override
     public String getHistoryName() {
-        return UnzipCommandNames.START_COMMAND_NAME;
+        return CommandNames.START_COMMAND_NAME;
     }
 
     @Override
@@ -101,20 +103,39 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
 
     @Override
     public String getCommandIdentifier() {
-        return UnzipCommandNames.START_COMMAND_NAME;
+        return CommandNames.START_COMMAND_NAME;
     }
 
     @Override
     public void processNonCommandUpdate(Message message, String text) {
-        Format format = formatService.getFormat(message.getDocument().getFileName(), message.getDocument().getMimeType());
         Locale locale = userService.getLocaleOrDefault(message.getFrom().getId());
-        MessageMedia file = fileService.getMedia(message, locale);
-        file.setFormat(checkFormat(message.getFrom().getId(), format, message.getDocument().getMimeType(), message.getDocument().getFileName(), locale));
+        if (message.hasDocument()) {
+            Format format = formatService.getFormat(message.getDocument().getFileName(), message.getDocument().getMimeType());
+            MessageMedia file = fileService.getMedia(message, locale);
+            file.setFormat(checkFormat(message.getFrom().getId(), format, message.getDocument().getMimeType(), message.getDocument().getFileName(), locale));
 
-        queueJob.removeAndCancelCurrentTasks(message.getChatId());
-        UnzipState unzipState = createState(file.getFormat());
-        commandStateService.setState(message.getChatId(), UnzipCommandNames.START_COMMAND_NAME, unzipState);
-        unzipService.unzip(message.getFrom().getId(), file, locale);
+            queueJob.removeAndCancelCurrentTasks(message.getChatId());
+            UnzipState unzipState = createState(message, file.getFormat());
+            commandStateService.setState(message.getChatId(), CommandNames.START_COMMAND_NAME, unzipState);
+            unzipService.unzip(message.getFrom().getId(), file, locale);
+        } else {
+            UnzipState state = commandStateService.getState(message.getChatId(), CommandNames.START_COMMAND_NAME, false, UnzipState.class);
+
+            if (state == null) {
+                messageService.sendMessage(
+                        SendMessage.builder().chatId(String.valueOf(message.getChatId()))
+                                .text(localisationService.getMessage(MessagesProperties.MESSAGE_UNZIP_NOT_FOUND, locale)).build()
+                );
+            } else {
+                state.setPassword(message.getText());
+                commandStateService.setState(message.getChatId(), CommandNames.START_COMMAND_NAME, state);
+
+                messageService.sendMessage(
+                        SendMessage.builder().chatId(String.valueOf(message.getChatId()))
+                                .text(localisationService.getMessage(MessagesProperties.MESSAGE_PASSWORD_SET, new Object[]{message.getText()}, locale)).build()
+                );
+            }
+        }
     }
 
     @Override
@@ -169,9 +190,10 @@ public class StartCommand implements NavigableBotCommand, BotCommand, CallbackBo
         return format;
     }
 
-    private UnzipState createState(Format archiveType) {
+    private UnzipState createState(Message message, Format archiveType) {
         UnzipState unzipState = new UnzipState();
         unzipState.setArchiveType(archiveType);
+        unzipState.setPassword(StringUtils.isNotBlank(message.getCaption()) ? message.getCaption() : UnzipQueueWorkerFactory.DEFAULT_PASSWORD);
 
         return unzipState;
     }

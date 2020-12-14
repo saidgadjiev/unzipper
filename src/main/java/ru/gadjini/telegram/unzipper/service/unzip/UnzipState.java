@@ -24,6 +24,8 @@ public class UnzipState {
 
     private int offset;
 
+    private String password;
+
     public String getArchivePath() {
         return archivePath;
     }
@@ -74,5 +76,13 @@ public class UnzipState {
 
     public void setOffset(int offset) {
         this.offset = offset;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 }

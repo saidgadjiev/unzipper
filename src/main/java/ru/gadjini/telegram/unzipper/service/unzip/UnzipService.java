@@ -11,6 +11,7 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import ru.gadjini.telegram.smart.bot.commons.common.CommandNames;
 import ru.gadjini.telegram.smart.bot.commons.exception.UserException;
 import ru.gadjini.telegram.smart.bot.commons.exception.botapi.TelegramApiException;
 import ru.gadjini.telegram.smart.bot.commons.model.MessageMedia;
@@ -24,7 +25,6 @@ import ru.gadjini.telegram.smart.bot.commons.service.message.MediaMessageService
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.queue.WorkQueueService;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
-import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
 import ru.gadjini.telegram.unzipper.service.keyboard.InlineKeyboardService;
@@ -86,7 +86,7 @@ public class UnzipService {
     }
 
     public void extractAll(int userId, int messageId, int unzipJobId, String queryId) {
-        UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
+        UnzipState unzipState = commandStateService.getState(userId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
         if (unzipState == null) {
             messageService.sendAnswerCallbackQuery(AnswerCallbackQuery.builder().callbackQueryId(queryId)
                     .text(localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACT_FILE_IMPOSSIBLE, userService.getLocaleOrDefault(userId)))
@@ -107,7 +107,7 @@ public class UnzipService {
     }
 
     public void extractFile(int userId, int messageId, int unzipJobId, int extractFileId, String queryId) {
-        UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
+        UnzipState unzipState = commandStateService.getState(userId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
         if (unzipState == null) {
             messageService.sendAnswerCallbackQuery(AnswerCallbackQuery.builder().callbackQueryId(queryId)
                     .text(localisationService.getMessage(MessagesProperties.MESSAGE_EXTRACT_FILE_IMPOSSIBLE, userService.getLocaleOrDefault(userId)))
@@ -135,7 +135,7 @@ public class UnzipService {
     }
 
     public void nextOrPrev(long chatId, int userId, int messageId, int prevLimit, int offset) {
-        UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
+        UnzipState unzipState = commandStateService.getState(userId, CommandNames.START_COMMAND_NAME, true, UnzipState.class);
 
         Locale locale = userService.getLocaleOrDefault(userId);
         UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, offset, locale);
@@ -145,7 +145,7 @@ public class UnzipService {
         unzipState.setPrevLimit(prevLimit);
         unzipState.setOffset(offset);
 
-        commandStateService.setState(userId, UnzipCommandNames.START_COMMAND_NAME, unzipState);
+        commandStateService.setState(userId, CommandNames.START_COMMAND_NAME, unzipState);
         try {
             messageService.editMessage(EditMessageText.builder().chatId(String.valueOf(chatId))
                     .messageId(messageId)
@@ -165,9 +165,9 @@ public class UnzipService {
     public void unzip(int userId, MessageMedia file, Locale locale) {
         checkCandidate(file.getFormat(), locale);
         UnzipQueueItem queueItem = unzipQueueService.createUnzipItem(userId, file);
-        UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
+        UnzipState unzipState = commandStateService.getState(userId, CommandNames.START_COMMAND_NAME, true, UnzipState.class);
         unzipState.setUnzipJobId(queueItem.getId());
-        commandStateService.setState(userId, UnzipCommandNames.START_COMMAND_NAME, unzipState);
+        commandStateService.setState(userId, CommandNames.START_COMMAND_NAME, unzipState);
 
         sendStartUnzippingMessage(queueItem, locale, message -> {
             queueItem.setProgressMessageId(message.getMessageId());

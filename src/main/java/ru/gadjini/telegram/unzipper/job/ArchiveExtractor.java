@@ -215,7 +215,7 @@ public class ArchiveExtractor {
             } else {
                 SmartTempFile file = fileService.createTempFile(userId, TAG, FilenameUtils.getExtension(archiveFileEntry.getValue().getPath()));
                 UnzipDevice unzipDevice = getCandidate(unzipState.getArchiveType());
-                unzipDevice.unzip(archiveFileEntry.getValue().getPath(), unzipState.getArchivePath(), file.getAbsolutePath(), UnzipQueueWorkerFactory.DEFAULT_PASSWORD);
+                unzipDevice.unzip(archiveFileEntry.getValue().getPath(), unzipState.getArchivePath(), file.getAbsolutePath(), unzipState.getPassword());
 
                 String fileName = FilenameUtils.getName(archiveFileEntry.getValue().getPath());
 

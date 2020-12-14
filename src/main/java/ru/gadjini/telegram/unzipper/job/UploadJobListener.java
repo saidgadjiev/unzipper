@@ -5,11 +5,11 @@ import com.google.gson.JsonElement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import ru.gadjini.telegram.smart.bot.commons.common.CommandNames;
 import ru.gadjini.telegram.smart.bot.commons.domain.UploadQueueItem;
 import ru.gadjini.telegram.smart.bot.commons.model.SendFileResult;
 import ru.gadjini.telegram.smart.bot.commons.service.command.CommandStateService;
 import ru.gadjini.telegram.smart.bot.commons.service.queue.event.UploadCompleted;
-import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipState;
 
@@ -36,7 +36,7 @@ public class UploadJobListener {
         SendFileResult result = uploadCompleted.getSendFileResult();
         UploadQueueItem item = uploadCompleted.getUploadQueueItem();
 
-        UnzipState unzipState = commandStateService.getState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
+        UnzipState unzipState = commandStateService.getState(item.getUserId(), CommandNames.START_COMMAND_NAME, true, UnzipState.class);
         Extra extra = gson.fromJson((JsonElement) item.getExtra(), Extra.class);
 
         uploadCompleted(item, unzipState, extra, result);
@@ -45,7 +45,7 @@ public class UploadJobListener {
 
     private void uploadCompleted(UploadQueueItem item, UnzipState unzipState, Extra extra, SendFileResult result) {
         unzipState.getFilesCache().put(extra.getCacheFileKey(), result.getFileId());
-        commandStateService.setState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, unzipState);
+        commandStateService.setState(item.getUserId(), CommandNames.START_COMMAND_NAME, unzipState);
     }
 
     private void extractUploadCompleted(UploadQueueItem item, Extra extra, UnzipState unzipState) {

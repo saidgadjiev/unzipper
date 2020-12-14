@@ -9,13 +9,13 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import ru.gadjini.telegram.smart.bot.commons.common.CommandNames;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
 import ru.gadjini.telegram.smart.bot.commons.service.command.CommandStateService;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.queue.event.CurrentTasksCanceled;
 import ru.gadjini.telegram.smart.bot.commons.service.queue.event.TaskCanceled;
-import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 import ru.gadjini.telegram.unzipper.service.keyboard.InlineKeyboardService;
 import ru.gadjini.telegram.unzipper.service.unzip.UnzipMessageBuilder;
@@ -54,14 +54,14 @@ public class QueueJobEventListener {
     public void currentTasksCanceled(TaskCanceled event) {
         UnzipQueueItem queueItem = (UnzipQueueItem) event.getQueueItem();
         if (queueItem.getItemType() == UnzipQueueItem.ItemType.UNZIP) {
-            commandStateService.deleteState(queueItem.getUserId(), UnzipCommandNames.START_COMMAND_NAME);
+            commandStateService.deleteState(queueItem.getUserId(), CommandNames.START_COMMAND_NAME);
 
-            UnzipState unzipState = commandStateService.getState(queueItem.getUserId(), UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
+            UnzipState unzipState = commandStateService.getState(queueItem.getUserId(), CommandNames.START_COMMAND_NAME, false, UnzipState.class);
             if (unzipState != null && StringUtils.isNotBlank(unzipState.getArchivePath())) {
                 new SmartTempFile(new File(unzipState.getArchivePath())).smartDelete();
             }
         } else {
-            UnzipState unzipState = commandStateService.getState(queueItem.getUserId(), UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
+            UnzipState unzipState = commandStateService.getState(queueItem.getUserId(), CommandNames.START_COMMAND_NAME, false, UnzipState.class);
             if (unzipState != null) {
                 Locale locale = userService.getLocaleOrDefault(queueItem.getUserId());
                 UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, unzipState.getOffset(), locale);
@@ -77,14 +77,14 @@ public class QueueJobEventListener {
     @EventListener
     public void currentTasksCanceled(CurrentTasksCanceled event) {
         int userId = event.getUserId();
-        UnzipState unzipState = commandStateService.getState(userId, UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
+        UnzipState unzipState = commandStateService.getState(userId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
 
         if (unzipState != null) {
             LOGGER.debug("Remove previous state({})", userId);
             if (StringUtils.isNotBlank(unzipState.getArchivePath())) {
                 new SmartTempFile(new File(unzipState.getArchivePath())).smartDelete();
             }
-            commandStateService.deleteState(userId, UnzipCommandNames.START_COMMAND_NAME);
+            commandStateService.deleteState(userId, CommandNames.START_COMMAND_NAME);
         }
     }
 }

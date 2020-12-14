@@ -6,6 +6,7 @@ import ru.gadjini.telegram.smart.bot.commons.common.CommandNames;
 import ru.gadjini.telegram.smart.bot.commons.service.CommandMessageBuilder;
 import ru.gadjini.telegram.smart.bot.commons.service.LocalisationService;
 import ru.gadjini.telegram.unzipper.common.MessagesProperties;
+import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
 
 import java.util.Locale;
 
@@ -23,6 +24,7 @@ public class UnzipCommandMessageBuilder implements CommandMessageBuilder {
         StringBuilder info = new StringBuilder();
 
         info.append("/").append(CommandNames.START_COMMAND_NAME).append(" - ").append(localisationService.getMessage(MessagesProperties.UNZIP_COMMAND_DESCRIPTION, locale)).append("\n");
+        info.append("/").append(UnzipCommandNames.CLEAR_PASSWORD).append(" - ").append(localisationService.getMessage(MessagesProperties.CLEAR_PASSWORD_COMMAND_DESCRIPTION, locale)).append("\n");
         info.append("/").append(CommandNames.LANGUAGE_COMMAND_NAME).append(" - ").append(localisationService.getMessage(MessagesProperties.LANGUAGE_COMMAND_DESCRIPTION, locale)).append("\n");
         info.append("/").append(CommandNames.HELP_COMMAND).append(" - ").append(localisationService.getMessage(MessagesProperties.HELP_COMMAND_DESCRIPTION, locale));
 

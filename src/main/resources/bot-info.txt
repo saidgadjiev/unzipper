@@ -7,4 +7,5 @@ I can extract files from an archive.
 Commands:
 start - restart the bot
 language - change language
+clearpasswd- clear password
 help - help

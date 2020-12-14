@@ -1,20 +1,24 @@
 package ru.gadjini.telegram.unzipper.job;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
+import ru.gadjini.telegram.smart.bot.commons.common.CommandNames;
+import ru.gadjini.telegram.smart.bot.commons.exception.ProcessException;
 import ru.gadjini.telegram.smart.bot.commons.io.SmartTempFile;
 import ru.gadjini.telegram.smart.bot.commons.service.UserService;
 import ru.gadjini.telegram.smart.bot.commons.service.command.CommandStateService;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
+import ru.gadjini.telegram.smart.bot.commons.service.localisation.ErrorCode;
 import ru.gadjini.telegram.smart.bot.commons.service.message.MessageService;
 import ru.gadjini.telegram.smart.bot.commons.service.queue.QueueWorker;
 import ru.gadjini.telegram.smart.bot.commons.service.queue.QueueWorkerFactory;
 import ru.gadjini.telegram.smart.bot.commons.utils.MemoryUtils;
-import ru.gadjini.telegram.unzipper.common.UnzipCommandNames;
+import ru.gadjini.telegram.unzipper.common.MessagesProperties;
 import ru.gadjini.telegram.unzipper.domain.UnzipQueueItem;
 import ru.gadjini.telegram.unzipper.model.ZipFileHeader;
 import ru.gadjini.telegram.unzipper.service.keyboard.InlineKeyboardService;
@@ -83,6 +87,19 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
         throw new IllegalArgumentException("Candidate not found for " + format + ". Wtf?");
     }
 
+    private ErrorCode getErrorCode0(long chatId, Throwable e) {
+        if (e instanceof ProcessException) {
+            UnzipState unzipState = commandStateService.getState(chatId, CommandNames.START_COMMAND_NAME, false, UnzipState.class);
+            if (unzipState != null && !StringUtils.isEmpty(unzipState.getPassword())) {
+                return new ErrorCode(MessagesProperties.MESSAGE_UNZIP_ERROR_INCORRECT_PASSWORD, new Object[]{unzipState.getPassword()});
+            } else {
+                return new ErrorCode(MessagesProperties.MESSAGE_UNZIP_ERROR);
+            }
+        }
+
+        return null;
+    }
+
     public class UnzipQueueWorker implements QueueWorker {
 
         private final Logger LOGGER = LoggerFactory.getLogger(UnzipQueueWorker.class);
@@ -105,9 +122,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
             Locale locale = userService.getLocaleOrDefault(item.getUserId());
             LOGGER.debug("Start({}, {}, {}, {})", item.getUserId(), size, item.getFile().getFormat(), item.getFile().getFileId());
             UnzipState unzipState = initAndGetState(in.getAbsolutePath());
-            if (unzipState == null) {
-                return;
-            }
+
             UnzipMessageBuilder.FilesMessage filesList = messageBuilder.getFilesList(unzipState.getFiles(), 0, 0, locale);
 
             messageService.editMessage(EditMessageText.builder().chatId(String.valueOf(item.getUserId()))
@@ -115,14 +130,14 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
                     .text(filesList.getMessage())
                     .replyMarkup(inlineKeyboardService.getFilesListKeyboard(unzipState.filesIds(), filesList.getLimit(),
                             0, filesList.getOffset(), item.getId(), locale)).build(), false);
-            commandStateService.setState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, unzipState);
+            commandStateService.setState(item.getUserId(), CommandNames.START_COMMAND_NAME, unzipState);
 
             LOGGER.debug("Finish({}, {}, {})", item.getUserId(), size, item.getFile().getFormat());
         }
 
         @Override
         public void cancel() {
-            commandStateService.deleteState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME);
+            commandStateService.deleteState(item.getUserId(), CommandNames.START_COMMAND_NAME);
         }
 
         @Override
@@ -132,14 +147,16 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
             }
         }
 
+        @Override
+        public ErrorCode getErrorCode(Throwable e) {
+            return getErrorCode0(item.getUserId(), e);
+        }
+
         private UnzipState initAndGetState(String zipFile) {
-            UnzipState unzipState = commandStateService.getState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, false, UnzipState.class);
-            if (unzipState == null) {
-                return null;
-            }
+            UnzipState unzipState = commandStateService.getState(item.getUserId(), CommandNames.START_COMMAND_NAME, true, UnzipState.class);
             unzipState.setArchivePath(zipFile);
             unzipState.setUnzipJobId(item.getId());
-            List<ZipFileHeader> zipFiles = unzipDevice.getZipFiles(zipFile, DEFAULT_PASSWORD);
+            List<ZipFileHeader> zipFiles = unzipDevice.getZipFiles(zipFile, unzipState.getPassword());
             int i = 1;
             for (ZipFileHeader file : zipFiles) {
                 unzipState.getFiles().put(i++, file);
@@ -161,7 +178,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
         public void execute() {
             String size = MemoryUtils.humanReadableByteCount(item.getExtractFileSize());
             LOGGER.debug("Start extract all({}, {})", item.getUserId(), size);
-            UnzipState unzipState = commandStateService.getState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
+            UnzipState unzipState = commandStateService.getState(item.getUserId(), CommandNames.START_COMMAND_NAME, true, UnzipState.class);
 
             ListIterator<ArchiveExtractor.ArchiveFile> archiveFilesIterator = extractProcessorFactory.getIterator(0, unzipState.getFiles());
 
@@ -180,6 +197,11 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
             }
             LOGGER.debug("Finish extract all({}, {})", item.getUserId(), size);
         }
+
+        @Override
+        public ErrorCode getErrorCode(Throwable e) {
+            return getErrorCode0(item.getUserId(), e);
+        }
     }
 
     public class ExtractFileQueueWorker implements QueueWorker {
@@ -194,7 +216,7 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
 
         @Override
         public void execute() {
-            UnzipState unzipState = commandStateService.getState(item.getUserId(), UnzipCommandNames.START_COMMAND_NAME, true, UnzipState.class);
+            UnzipState unzipState = commandStateService.getState(item.getUserId(), CommandNames.START_COMMAND_NAME, true, UnzipState.class);
             ZipFileHeader fileHeader = unzipState.getFiles().get(item.getExtractFileId());
             String size = MemoryUtils.humanReadableByteCount(fileHeader.getSize());
             LOGGER.debug("Start({}, {})", item.getUserId(), size);
@@ -205,6 +227,11 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
             extractProcessorFactory.sendExtractedFile(item, extract);
 
             LOGGER.debug("Finish({}, {})", item.getUserId(), size);
+        }
+
+        @Override
+        public ErrorCode getErrorCode(Throwable e) {
+            return getErrorCode0(item.getUserId(), e);
         }
     }
 }

@@ -25,6 +25,8 @@ public class MessagesProperties {
 
     public static final String UNZIP_COMMAND_DESCRIPTION = "unzip.command.description";
 
+    public static final String CLEAR_PASSWORD_COMMAND_DESCRIPTION = "clear.password.command.description";
+
     public static final String LANGUAGE_COMMAND_DESCRIPTION = "language.command.description";
 
     public static final String HELP_COMMAND_DESCRIPTION = "help.command.description";
@@ -58,5 +60,13 @@ public class MessagesProperties {
     public static final String MESSAGE_FILE_QUEUED = "message.file.queued";
 
     public static final String MESSAGE_DONT_SEND_NEW_REQUEST = "message.dont.send.new.request";
+
+    public static final String MESSAGE_UNZIP_NOT_FOUND = "message.unzip.not.found";
+
+    public static final String MESSAGE_PASSWORD_SET = "message.password.set";
+
+    public static final String MESSAGE_UNZIP_ERROR_INCORRECT_PASSWORD = "message.unzip.error.incorrect.password";
+
+    public static final String MESSAGE_PASSWORD_CLEARED = "message.password.cleared";
 
 }
