@@ -14,7 +14,6 @@ import ru.gadjini.telegram.smart.bot.commons.domain.DownloadQueueItem;
 import ru.gadjini.telegram.smart.bot.commons.domain.QueueItem;
 import ru.gadjini.telegram.smart.bot.commons.domain.TgFile;
 import ru.gadjini.telegram.smart.bot.commons.property.FileLimitProperties;
-import ru.gadjini.telegram.smart.bot.commons.property.QueueProperties;
 import ru.gadjini.telegram.smart.bot.commons.service.concurrent.SmartExecutorService;
 import ru.gadjini.telegram.smart.bot.commons.service.format.Format;
 import ru.gadjini.telegram.smart.bot.commons.utils.JdbcUtils;
