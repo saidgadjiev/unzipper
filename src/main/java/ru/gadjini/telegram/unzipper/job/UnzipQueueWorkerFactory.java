@@ -136,8 +136,10 @@ public class UnzipQueueWorkerFactory implements QueueWorkerFactory<UnzipQueueIte
         }
 
         @Override
-        public void cancel() {
-            commandStateService.deleteState(item.getUserId(), CommandNames.START_COMMAND_NAME);
+        public void cancel(boolean canceledByUser) {
+            if (canceledByUser) {
+                commandStateService.deleteState(item.getUserId(), CommandNames.START_COMMAND_NAME);
+            }
         }
 
         @Override

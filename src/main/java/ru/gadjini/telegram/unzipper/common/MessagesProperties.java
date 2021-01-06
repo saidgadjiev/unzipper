@@ -19,10 +19,6 @@ public class MessagesProperties {
 
     public static final String MESSAGE_EXTRACT_FILE_IMPOSSIBLE = "message.extract.file.impossible";
 
-    public static final String MESSAGE_ZIP_ENCRYPTED = "message.zip.encrypted";
-
-    public static final String MESSAGE_ZIP_INVALID = "message.zip.invalid";
-
     public static final String UNZIP_COMMAND_DESCRIPTION = "unzip.command.description";
 
     public static final String CLEAR_PASSWORD_COMMAND_DESCRIPTION = "clear.password.command.description";

@@ -38,15 +38,12 @@ public class UnzipQueueDao implements WorkQueueDaoDelegate<UnzipQueueItem> {
 
     private ObjectMapper objectMapper;
 
-    private QueueProperties queueProperties;
-
     @Autowired
     public UnzipQueueDao(JdbcTemplate jdbcTemplate, FileLimitProperties fileLimitProperties,
-                         ObjectMapper objectMapper, QueueProperties queueProperties) {
+                         ObjectMapper objectMapper) {
         this.jdbcTemplate = jdbcTemplate;
         this.fileLimitProperties = fileLimitProperties;
         this.objectMapper = objectMapper;
-        this.queueProperties = queueProperties;
     }
 
     public int create(UnzipQueueItem unzipQueueItem) {
@@ -110,14 +107,13 @@ public class UnzipQueueDao implements WorkQueueDaoDelegate<UnzipQueueItem> {
                 "SELECT COALESCE(queue_position, 1) as queue_position\n" +
                         "FROM (SELECT id, row_number() over (ORDER BY created_at) AS queue_position\n" +
                         "      FROM unzip_queue \n" +
-                        "      WHERE status = 0 AND attempts < ? AND CASE WHEN item_type IN (1, 2) THEN extract_file_size " +
-                        "ELSE (file).size END " + (weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">") + " ?\n" +
+                        "      WHERE status = 0 AND CASE WHEN item_type IN (1, 2) THEN extract_file_size " +
+                        "ELSE (file).size END " + getSign(weight) + " ?\n" +
                         ") as file_q\n" +
                         "WHERE id = ?",
                 ps -> {
-                    ps.setInt(1, queueProperties.getMaxAttempts());
-                    ps.setLong(2, fileLimitProperties.getLightFileMaxWeight());
-                    ps.setInt(3, id);
+                    ps.setLong(1, fileLimitProperties.getLightFileMaxWeight());
+                    ps.setInt(2, id);
                 },
                 rs -> {
                     if (rs.next()) {
@@ -131,36 +127,45 @@ public class UnzipQueueDao implements WorkQueueDaoDelegate<UnzipQueueItem> {
 
     @Override
     public List<UnzipQueueItem> poll(SmartExecutorService.JobWeight weight, int limit) {
-        String sign = weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">";
-
         return jdbcTemplate.query(
                 "WITH r AS (\n" +
                         "    UPDATE unzip_queue SET " + QueueDao.POLL_UPDATE_LIST +
                         " WHERE id IN (SELECT id FROM unzip_queue qu " +
                         "WHERE status = 0 AND NOT EXISTS(select 1 FROM " + DownloadQueueItem.NAME + " dq where dq.producer = 'unzip_queue' AND dq.producer_id = qu.id AND dq.status != 3) " +
-                        "AND CASE WHEN item_type = 0 THEN " +
-                        "(file).size " + sign + " ? ELSE " +
-                        "extract_file_size " + sign + " ? END " + QueueDao.POLL_ORDER_BY + " LIMIT " + limit + ") RETURNING *\n" +
+                        "AND CASE WHEN item_type = 0 THEN (file).size ELSE " +
+                        "extract_file_size END " + getSign(weight) + " ? " + QueueDao.POLL_ORDER_BY + " LIMIT " + limit + ") RETURNING *\n" +
                         ")\n" +
                         "SELECT *, (file).*, 1 as queue_position,\n" +
                         "(SELECT json_agg(ds) FROM (SELECT * FROM " + DownloadQueueItem.NAME + " dq WHERE dq.producer = 'unzip_queue' AND dq.producer_id = r.id) as ds) as downloads\n" +
                         "FROM r",
-                ps -> {
-                    ps.setLong(1, fileLimitProperties.getLightFileMaxWeight());
-                    ps.setLong(2, fileLimitProperties.getLightFileMaxWeight());
-                },
+                ps -> ps.setLong(1, fileLimitProperties.getLightFileMaxWeight()),
                 (rs, rowNum) -> map(rs)
         );
     }
 
     @Override
     public long countReadToComplete(SmartExecutorService.JobWeight weight) {
-        return 0;
+        return jdbcTemplate.query(
+                "SELECT COUNT(id) as cnt\n" +
+                        "        FROM unzip_queue qu WHERE qu.status = 0 AND CASE WHEN item_type = 0 THEN " +
+                        "(file).size ELSE extract_file_size END " + getSign(weight) + " ?" +
+                        " AND NOT EXISTS(select 1 FROM " + DownloadQueueItem.NAME + " dq where dq.producer = 'unzip_queue' AND dq.producer_id = qu.id AND dq.status != 3) ",
+                ps -> ps.setLong(1, fileLimitProperties.getLightFileMaxWeight()),
+                (rs) -> rs.next() ? rs.getLong("cnt") : 0
+        );
     }
 
     @Override
     public long countProcessing(SmartExecutorService.JobWeight weight) {
-        return 0;
+        return jdbcTemplate.query(
+                "SELECT COUNT(id) as cnt\n" +
+                        "        FROM unzip_queue qu WHERE qu.status = 1 AND CASE WHEN item_type = 0 THEN (file).size ELSE " +
+                        "extract_file_size END " + getSign(weight) + " ?",
+                ps -> {
+                    ps.setLong(1, fileLimitProperties.getLightFileMaxWeight());
+                },
+                (rs) -> rs.next() ? rs.getLong("cnt") : 0
+        );
     }
 
     public SmartExecutorService.JobWeight getWeight(int id) {
@@ -185,7 +190,7 @@ public class UnzipQueueDao implements WorkQueueDaoDelegate<UnzipQueueItem> {
                         "FROM unzip_queue f\n" +
                         "         LEFT JOIN (SELECT id, row_number() over (ORDER BY created_at) as queue_position\n" +
                         "                     FROM unzip_queue\n" +
-                        "      WHERE status = 0 AND CASE WHEN item_type IN (1, 2) THEN extract_file_size ELSE (file).size END " + (weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">") + " ?\n" +
+                        "      WHERE status = 0 AND CASE WHEN item_type IN (1, 2) THEN extract_file_size ELSE (file).size END " + getSign(weight) + " ?\n" +
                         ") queue_place ON f.id = queue_place.id\n" +
                         "WHERE f.id = ?\n",
                 ps -> {
@@ -226,6 +231,10 @@ public class UnzipQueueDao implements WorkQueueDaoDelegate<UnzipQueueItem> {
     @Override
     public String getQueueName() {
         return UnzipQueueItem.NAME;
+    }
+
+    private String getSign(SmartExecutorService.JobWeight weight) {
+        return weight.equals(SmartExecutorService.JobWeight.LIGHT) ? "<=" : ">";
     }
 
     private UnzipQueueItem map(ResultSet resultSet) throws SQLException {
