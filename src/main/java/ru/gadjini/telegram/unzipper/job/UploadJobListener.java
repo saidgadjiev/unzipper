@@ -44,8 +44,10 @@ public class UploadJobListener {
     }
 
     private void uploadCompleted(UploadQueueItem item, UnzipState unzipState, Extra extra, SendFileResult result) {
-        unzipState.getFilesCache().put(extra.getCacheFileKey(), result.getFileId());
-        commandStateService.setState(item.getUserId(), CommandNames.START_COMMAND_NAME, unzipState);
+        if (result != null) {
+            unzipState.getFilesCache().put(extra.getCacheFileKey(), result.getFileId());
+            commandStateService.setState(item.getUserId(), CommandNames.START_COMMAND_NAME, unzipState);
+        }
     }
 
     private void extractUploadCompleted(UploadQueueItem item, Extra extra, UnzipState unzipState) {
